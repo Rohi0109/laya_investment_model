@@ -1,24 +1,28 @@
 from laya_model.laya_model import decision
 from setup.setup import setup
 from ticker.obtain_ticker import obtain_ticker
-from investment_question.investment_question import investment_question
+from investment_question.investment_questions import return_all_questions
+from laya_model.laya_model import decision
 #todo clean imports 
 
 
 def main(ticker_name:str= 'AAPL'):
+    #for i in companies
     router = setup()
 
     ticker = obtain_ticker(ticker_name)
 
-    
-    question = investment_question()
 
-    context = f"Stock: {ticker.ticker}. PEG ratio: {ticker.info['pegRatio']}"
-    
-    result = decision(context, [question], router)
 
-    answer = result["answers"][question.name]
-    print(f"{answer['choice']} (confidence: {answer['answer_confidence']:.1%})")
+    
+    questions = return_all_questions(ticker.info)
+
+    final_result= decision("#todo add",questions,router)
+    print(final_result)
+
+
+
+
 
     
 
@@ -28,4 +32,4 @@ def main(ticker_name:str= 'AAPL'):
 
 
 if __name__ == "__main__":
-    main()
+    main('MNDY')
