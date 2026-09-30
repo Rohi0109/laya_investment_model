@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <title>Laya / Investment Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+    <script src="/static/app.js" defer></script>
+</head>
+
+<body>
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="Laya home"><span class="brand-mark">l.</span> laya<span
+                class="brand-divider">/</span><span class="app-name">Investment Research</span></a>
+        <div class="connection">
+            <span class="status-dot" id="model-dot"></span><span id="model-status">Model not loaded</span>
+        </div>
+    </header>
+    <div class="workspace">
+        <aside class="sidebar" aria-label="Portfolio">
+            <div class="sidebar-heading">
+                <h2>Portfolio</h2>
+                <span class="count" id="holding-count">0</span>
+            </div>
+            <div class="portfolio-labels">
+                <span>Asset</span><span>Weight</span>
+            </div>
+            <nav id="portfolio" aria-label="Select company"></nav>
+            <label class="mobile-picker" for="company-select">Company<select id="company-select"></select></label>
+            <div class="sidebar-footer">
+                <span class="eyebrow">RESEARCH ENGINE</span><strong>Laya</strong><span>6 questions. One model
+                    call.</span>
+                <div class="engine-rule"></div>
+                <span>Live market fundamentals<br />Constrained choice outputs</span>
+            </div>
+        </aside>
+        <main>
+            <div class="breadcrumb">WORKSPACE <span>/</span> COMPANY RESEARCH</div>
+            <section class="company-header" aria-labelledby="company-name">
+                <div class="company-identity">
+                    <div class="company-logo" id="company-logo"></div>
+                    <div>
+                        <div class="company-meta">
+                            <span id="company-symbol">---</span><span class="meta-divider">/</span><span
+                                id="company-sector">Loading</span>
+                        </div>
+                        <h1 id="company-name">Investment research</h1>
+                    </div>
+                </div>
+                <div class="company-actions">
+                    <button class="icon-button" id="refresh" title="Refresh market data"
+                        aria-label="Refresh market data" disabled>
+                        <i data-lucide="refresh-cw"></i></button><button class="run-button" id="run" disabled>
+                        <i data-lucide="play"></i><span>Run analysis</span>
+                    </button>
+                </div>
+            </section>
+            <div id="error" class="error-banner" role="alert" hidden></div>
+            <div class="activity" role="status" aria-live="polite">
+                <span class="activity-dot" id="activity-dot"></span><span id="activity-text">Loading
+                    portfolio...</span><span id="elapsed"></span>
+            </div>
+            <section class="metrics" aria-label="Analysis measurements">
+                <div class="metric primary-metric">
+                    <span class="eyebrow">LAYA CALL</span>
+                    <div class="metric-value">
+                        <span id="laya-time">--</span><span class="unit">ms</span>
+                    </div>
+                    <span class="metric-note">Routing + prediction</span>
+                </div>
+                <div class="metric">
+                    <span class="eyebrow">DECISIONS</span>
+                    <div class="metric-value">
+                        <span id="decision-count">0</span><span class="unit">/ 6</span>
+                    </div>
+                    <span class="metric-note">Single request</span>
+                </div>
+                <div class="metric">
+                    <span class="eyebrow">OUTPUT CONTRACT</span>
+                    <div class="contract-status" id="contract-status">Awaiting run</div>
+                    <span class="metric-note" id="contract-note">6 constrained choice fields</span>
+                </div>
+                <div class="metric">
+                    <span class="eyebrow">MODEL STATE</span>
+                    <div class="contract-status" id="run-model-state">Not run</div>
+                    <span class="metric-note" id="setup-note">Setup timed separately</span>
+                </div>
+            </section>
+            <section class="decisions-section" aria-labelledby="decisions-heading">
+                <div class="section-heading">
+                    <h2 id="decisions-heading">Decision output</h2>
+                    <span class="code-label">type: choice</span>
+                </div>
+                <div class="table-heading">
+                    <span>RESEARCH DIMENSION</span><span>ALLOWED VALUES</span>
+                </div>
+                <div id="decisions" aria-live="polite"></div>
+            </section>
+            <section class="inspector" aria-label="Analysis details">
+                <div class="inspector-header">
+                    <div class="tabs" role="tablist" aria-label="Inspect analysis">
+                        <button id="tab-input" role="tab" aria-selected="true" aria-controls="panel-input"
+                            data-tab="input">
+                            Fundamentals</button><button id="tab-response" role="tab" aria-selected="false"
+                            aria-controls="panel-response" tabindex="-1" data-tab="response">
+                            Response JSON</button><button id="tab-schema" role="tab" aria-selected="false"
+                            aria-controls="panel-schema" tabindex="-1" data-tab="schema">
+                            Output schema
+                        </button>
+                    </div>
+                    <span class="source-label">SOURCE / YAHOO FINANCE</span>
+                </div>
+                <div id="panel-input" role="tabpanel" aria-labelledby="tab-input">
+                    <div class="fundamentals" id="fundamentals"></div>
+                </div>
+                <div id="panel-response" role="tabpanel" aria-labelledby="tab-response" hidden>
+                    <pre id="response-json">No analysis run yet.</pre>
+                </div>
+                <div id="panel-schema" role="tabpanel" aria-labelledby="tab-schema" hidden>
+                    <pre id="schema-json"></pre>
+                </div>
+                <div class="data-footer">
+                    <span id="snapshot-time">No data loaded</span><span id="fetch-time"></span><span
+                        id="total-time"></span>
+                </div>
+            </section>
+            <footer class="page-footer">
+                <span>LAYA / RESEARCH LAB</span><span>Research prioritization only. Not investment advice.</span>
+            </footer>
+        </main>
+    </div>
+</body>
+
+</html>

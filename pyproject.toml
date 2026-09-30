@@ -1,5 +1,11 @@
 [project]
-dependencies = ["yfinance", "langgraph", "laya>=0.3.22"]
+dependencies = [
+    "yfinance",
+    "langgraph",
+    "laya>=0.3.22",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+]
 name = "finance"
 version = "0.1.0"
 description = "Add your description here"
@@ -7,8 +13,12 @@ readme = "README.md"
 requires-python = ">=3.14"
 
 [dependency-groups]
-dev = ["pytest"]
+dev = ["pytest", "httpx>=0.28"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-testpaths = ["laya_model/tests"]
+testpaths = ["laya_model/tests", "tests"]
+addopts = "-m 'not laya_integration'"
+markers = [
+    "laya_integration: runs real Laya inference using fixed inputs; may download model weights",
+]
