@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:${PORT:-8001}:8000"
+    init: true
+    volumes:
+      - laya-cache:/home/app/.cache
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  laya-cache:

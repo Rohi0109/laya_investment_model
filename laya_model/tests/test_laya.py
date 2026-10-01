@@ -1,12 +1,14 @@
-import logging
+from unittest.mock import Mock
 
 import pytest
+from laya import Router
+from pydantic import ValidationError
+
+from investment_question.investment_questions import return_all_questions
 from laya_model.laya_model import decision
 from models.choice_question import ChoiceQuestion
-from laya import Router
-from investment_question.investment_questions import return_all_questions
 from models.state import State, create_state
-from pydantic import ValidationError
+from setup.setup import setup
 
 
 def test_create_state():
@@ -44,6 +46,64 @@ def test_return_all_questions():
     assert all(len(question.criteria) == 3 for question in questions)
 
 
+def test_nvidia_snapshot_units(nvidia_info):
+    state = create_state(nvidia_info)
+    assert state.symbol == "NVDA"
+    assert state.one_year_return == 0.21346939
+    assert state.distance_from_high == -0.034497287
+    assert state.revenue_growth == 1.059
+    assert state.earnings_growth == 1.278
+    assert state.profit_margin == 0.63663
+    assert state.debt_to_equity == 16.971
+    assert state.distance_from_high == pytest.approx(
+        nvidia_info["regularMarketPrice"] / nvidia_info["fiftyTwoWeekHigh"] - 1,
+        abs=1e-6,
+    )
+    assert State.model_validate_json(state.model_dump_json()) == state
+
+
+def test_nvidia_decision_forwards_payload(nvidia_info, nvidia_observed_result):
+    router = Mock(spec=Router)
+    router.predict.return_value = nvidia_observed_result
+    state_json = create_state(nvidia_info).model_dump_json()
+    questions = return_all_questions()
+
+    result = decision(state_json, questions, router)
+
+    router.predict.assert_called_once_with(
+        state_json,
+        {question.name: question.model_dump(exclude={"name"}) for question in questions},
+    )
+    assert result is nvidia_observed_result
+    momentum = router.predict.call_args.args[1]["market_momentum_question"]
+    assert momentum["type"] == "choice"
+    assert set(momentum["criteria"]) == {"negative", "neutral", "positive"}
+
+
+def test_nvidia_momentum_regression():
+    state = State(
+        company="NVIDIA Corporation",
+        symbol="NVDA",
+        sector="Technology",
+        forward_pe=14.562609,
+        peg_ratio=0.47,
+        revenue_growth=1.059,
+        earnings_growth=1.278,
+        profit_margin=0.63663,
+        beta=2.217,
+        debt_to_equity=16.971,
+        one_year_return=0.21346939,
+        distance_from_high=-0.034497287,
+    )
+    router = setup()
+    questions = return_all_questions()
+    result = decision(state.model_dump_json(), questions, router)
+
+    print(result)
+    assert result["answers"]["market_momentum_question"]["choice"] == "positive"
+
+
+@pytest.mark.laya_integration
 def test_get_decision():
     router = Router ()
     questions = [
