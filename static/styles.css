@@ -220,7 +220,7 @@ button svg {
 
 .screen-table {
     width: 100%;
-    min-width: 680px;
+    min-width: 840px;
     border-collapse: collapse;
     text-align: left;
     table-layout: fixed;
@@ -235,15 +235,15 @@ button svg {
 }
 
 .screen-table th:first-child {
-    width: 30%;
+    width: 26%;
 }
 
 .screen-table th:nth-child(2) {
-    width: 12%;
+    width: 10%;
 }
 
 .screen-table th:last-child {
-    width: 19%;
+    width: 16%;
 }
 
 .screen-table td {

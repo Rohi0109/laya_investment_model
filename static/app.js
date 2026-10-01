@@ -173,7 +173,7 @@ function renderOverview() {
     if (!companies.length) {
         const row = element("tr");
         const cell = element("td", "empty-holdings", "No holdings in this portfolio.");
-        cell.colSpan = 6;
+        cell.colSpan = 7;
         row.append(cell);
         rows.append(row);
     }
@@ -196,14 +196,14 @@ function renderOverview() {
         button.addEventListener("click", () => selectCompany(symbol));
         company.append(button);
         row.append(company, element("td", "screen-weight", formatMetric(weight, "fraction")));
-        ["growth_question", "risk_question", "market_momentum_question"].forEach((name) => {
+        ["research_priority_question", "growth_question", "risk_question", "market_momentum_question"].forEach((name) => {
             const value = result?.answers[name]?.choice;
             const cell = element("td");
             const badge = element("span", "screen-choice", value || "Not run");
             if (value) {
                 badge.classList.add(
-                    ["high", "weak", "negative"].includes(value) ? "negative"
-                        : ["medium", "moderate", "neutral"].includes(value) ? "caution" : "positive",
+                    ["high", "weak", "negative", "ignore"].includes(value) ? "negative"
+                        : ["medium", "moderate", "neutral", "monitor"].includes(value) ? "caution" : "positive",
                 );
             }
             cell.append(badge);
