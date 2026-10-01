@@ -11,9 +11,9 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=portfolio-screen" />
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-    <script src="/static/app.js" defer></script>
+    <script src="/static/app.js?v=portfolio-screen" defer></script>
 </head>
 
 <body>
@@ -30,6 +30,9 @@
                 <h2>Portfolio</h2>
                 <span class="count" id="holding-count">0</span>
             </div>
+            <button class="overview-nav" id="overview-nav" type="button" aria-pressed="true">
+                <i data-lucide="layout-list"></i><span>Overview</span>
+            </button>
             <div class="portfolio-labels">
                 <span>Asset</span><span>Weight</span>
             </div>
@@ -43,6 +46,40 @@
             </div>
         </aside>
         <main>
+            <div id="error" class="error-banner" role="alert" hidden></div>
+            <section id="overview-view" aria-labelledby="overview-heading">
+                <div class="breadcrumb">WORKSPACE <span>/</span> PORTFOLIO SCREENING</div>
+                <div class="company-header overview-header">
+                    <div>
+                        <span class="eyebrow">HOLDINGS</span>
+                        <h1 id="overview-heading">Portfolio overview</h1>
+                    </div>
+                    <div class="company-actions">
+                        <button class="icon-button" id="stop-screen" type="button" title="Stop after current company"
+                            aria-label="Stop after current company" hidden><i data-lucide="square"></i></button>
+                        <button class="run-button" id="screen-portfolio" type="button" disabled>
+                            <i data-lucide="scan-line"></i><span>Screen portfolio</span>
+                        </button>
+                    </div>
+                </div>
+                <dl class="portfolio-totals">
+                    <div><dt>Holdings</dt><dd id="overview-count">--</dd></div>
+                    <div><dt>Portfolio weight</dt><dd id="overview-weight">--</dd></div>
+                    <div><dt>Screened</dt><dd id="overview-screened">0 / 0</dd></div>
+                </dl>
+                <div class="section-heading">
+                    <h2>Holdings overview</h2><span class="code-label">Laya classifications</span>
+                </div>
+                <div class="screen-status" id="screen-status" role="status" aria-live="polite">Loading portfolio...</div>
+                <div class="screen-table-scroll" role="region" aria-label="Portfolio holdings" tabindex="0">
+                    <table class="screen-table">
+                        <thead><tr><th scope="col">Company</th><th scope="col">Weight</th><th scope="col">Growth</th>
+                            <th scope="col">Risk</th><th scope="col">Momentum</th><th scope="col">Last analysis</th></tr></thead>
+                        <tbody id="screen-rows"></tbody>
+                    </table>
+                </div>
+            </section>
+            <div id="company-view" hidden>
             <div class="breadcrumb">WORKSPACE <span>/</span> COMPANY RESEARCH</div>
             <section class="company-header" aria-labelledby="company-name">
                 <div class="company-identity">
@@ -63,7 +100,6 @@
                     </button>
                 </div>
             </section>
-            <div id="error" class="error-banner" role="alert" hidden></div>
             <div class="activity" role="status" aria-live="polite">
                 <span class="activity-dot" id="activity-dot"></span><span id="activity-text">Loading
                     portfolio...</span><span id="elapsed"></span>
@@ -132,6 +168,7 @@
                         id="total-time"></span>
                 </div>
             </section>
+            </div>
             <footer class="page-footer">
                 <span>LAYA / RESEARCH LAB</span><span>Research prioritization only. Not investment advice.</span>
             </footer>

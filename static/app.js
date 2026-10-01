@@ -42,6 +42,11 @@ let loading = false;
 let running = false;
 let selectionVersion = 0;
 const results = new Map();
+const screenErrors = new Map();
+const analyzedAt = new Map();
+let screening = false;
+let stopRequested = false;
+let activeSymbol = "";
 
 function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -90,6 +95,15 @@ function updateControls() {
     document.querySelectorAll(".holding").forEach((button) => {
         button.disabled = running;
     });
+    document.querySelectorAll(".company-link").forEach((button) => {
+        button.disabled = running;
+    });
+    byId("overview-nav").disabled = running;
+    byId("screen-portfolio").disabled = running || loading || !companies.length;
+    byId("screen-portfolio").querySelector("span").textContent = screening
+        ? "Screening..." : "Screen portfolio";
+    byId("stop-screen").hidden = !screening;
+    byId("stop-screen").disabled = stopRequested;
     byId("run").querySelector("span").textContent = running
         ? "Analyzing..."
         : results.has(selected)
@@ -118,6 +132,10 @@ function renderPortfolio() {
     list.replaceChildren();
     byId("company-select").replaceChildren();
     byId("holding-count").textContent = companies.length;
+    const placeholder = element("option", "", "Select company");
+    placeholder.value = "";
+    placeholder.disabled = true;
+    byId("company-select").append(placeholder);
     companies.forEach(({ symbol, weight }) => {
         const button = element("button", "holding");
         button.type = "button";
@@ -142,6 +160,119 @@ function renderPortfolio() {
         byId("company-select").append(option);
     });
     byId("company-select").value = selected;
+}
+
+function renderOverview() {
+    byId("overview-count").textContent = companies.length;
+    byId("overview-weight").textContent = formatMetric(
+        companies.reduce((total, company) => total + company.weight, 0), "fraction",
+    );
+    byId("overview-screened").textContent = `${results.size} / ${companies.length}`;
+    const rows = byId("screen-rows");
+    rows.replaceChildren();
+    if (!companies.length) {
+        const row = element("tr");
+        const cell = element("td", "empty-holdings", "No holdings in this portfolio.");
+        cell.colSpan = 6;
+        row.append(cell);
+        rows.append(row);
+    }
+    companies.forEach(({ symbol, weight }) => {
+        const result = results.get(symbol);
+        const row = element("tr");
+        row.classList.toggle("screen-active", activeSymbol === symbol);
+        const company = element("td");
+        const button = element("button", "company-link");
+        button.type = "button";
+        button.disabled = running;
+        const image = element("span", "holding-logo");
+        image.append(logo(symbol));
+        const identity = element("span", "screen-company-name");
+        identity.append(
+            element("strong", "", result?.snapshot.state.company || names[symbol] || symbol),
+            element("span", "", symbol),
+        );
+        button.append(image, identity);
+        button.addEventListener("click", () => selectCompany(symbol));
+        company.append(button);
+        row.append(company, element("td", "screen-weight", formatMetric(weight, "fraction")));
+        ["growth_question", "risk_question", "market_momentum_question"].forEach((name) => {
+            const value = result?.answers[name]?.choice;
+            const cell = element("td");
+            const badge = element("span", "screen-choice", value || "Not run");
+            if (value) {
+                badge.classList.add(
+                    ["high", "weak", "negative"].includes(value) ? "negative"
+                        : ["medium", "moderate", "neutral"].includes(value) ? "caution" : "positive",
+                );
+            }
+            cell.append(badge);
+            row.append(cell);
+        });
+        const error = screenErrors.get(symbol);
+        const status = element("td", "screen-row-status", activeSymbol === symbol
+            ? "Analyzing..." : error ? `Failed: ${error}` : result
+                ? analyzedAt.get(symbol).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "Not run");
+        status.classList.toggle("screen-failed", Boolean(error));
+        row.append(status);
+        rows.append(row);
+    });
+}
+
+function showOverview() {
+    if (running) return;
+    ++selectionVersion;
+    selected = "";
+    snapshot = null;
+    loading = false;
+    byId("overview-view").hidden = false;
+    byId("company-view").hidden = true;
+    byId("overview-nav").setAttribute("aria-pressed", "true");
+    showError();
+    renderPortfolio();
+    renderOverview();
+    updateControls();
+}
+
+async function screenPortfolio() {
+    if (running || loading || !companies.length) return;
+    running = true;
+    screening = true;
+    stopRequested = false;
+    showError();
+    updateControls();
+    let completed = 0;
+    let failed = 0;
+    const statusTimer = setInterval(updateStatus, 1500);
+    try {
+        for (const { symbol } of companies) {
+            if (stopRequested) break;
+            activeSymbol = symbol;
+            results.delete(symbol);
+            screenErrors.delete(symbol);
+            renderOverview();
+            byId("screen-status").textContent = `Screening ${symbol} / ${completed + 1} of ${companies.length}`;
+            try {
+                const result = await request(`/api/analyze/${encodeURIComponent(symbol)}`, { method: "POST" });
+                results.set(symbol, result);
+                analyzedAt.set(symbol, new Date());
+            } catch (error) {
+                screenErrors.set(symbol, error.message);
+                failed += 1;
+            }
+            completed += 1;
+        }
+    } finally {
+        clearInterval(statusTimer);
+        activeSymbol = "";
+        running = false;
+        screening = false;
+        byId("screen-status").textContent = `${stopRequested ? "Stopped" : "Screen complete"}. ${completed - failed} succeeded, ${failed} failed, ${companies.length - completed} not processed.`;
+        renderOverview();
+        updateControls();
+        updateStatus();
+    }
 }
 
 function renderDecisions(result) {
@@ -255,11 +386,17 @@ function renderResult() {
 
 async function selectCompany(symbol, refresh = false) {
     if (running) return;
+    byId("overview-view").hidden = true;
+    byId("company-view").hidden = false;
+    byId("overview-nav").setAttribute("aria-pressed", "false");
     const version = ++selectionVersion;
     selected = symbol;
     loading = true;
     snapshot = null;
-    if (refresh) results.delete(symbol);
+    if (refresh) {
+        results.delete(symbol);
+        screenErrors.delete(symbol);
+    }
     showError();
     renderPortfolio();
     renderSnapshot();
@@ -294,6 +431,7 @@ async function runAnalysis() {
     if (running || loading || !snapshot) return;
     running = true;
     results.delete(selected);
+    screenErrors.delete(selected);
     renderResult();
     showError();
     updateControls();
@@ -312,6 +450,7 @@ async function runAnalysis() {
             { method: "POST" },
         );
         results.set(selected, result);
+        analyzedAt.set(selected, new Date());
         snapshot = result.snapshot;
         renderSnapshot();
         renderResult();
@@ -319,6 +458,7 @@ async function runAnalysis() {
         setActivity("Analysis complete. All six choices passed validation.");
     } catch (error) {
         running = false;
+        screenErrors.set(selected, error.message);
         showError(error.message);
         setActivity("Analysis failed. Run again to retry.");
     } finally {
@@ -356,6 +496,17 @@ document.querySelectorAll("[role=tab]").forEach((tab, index, tabs) => {
     });
 });
 byId("run").addEventListener("click", runAnalysis);
+byId("overview-nav").addEventListener("click", showOverview);
+byId("screen-portfolio").addEventListener("click", screenPortfolio);
+byId("stop-screen").addEventListener("click", () => {
+    stopRequested = true;
+    byId("screen-status").textContent = `Stopping after ${activeSymbol}...`;
+    updateControls();
+});
+document.querySelector(".brand").addEventListener("click", (event) => {
+    event.preventDefault();
+    showOverview();
+});
 byId("refresh").addEventListener("click", () => selectCompany(selected, true));
 byId("company-select").addEventListener("change", (event) =>
     selectCompany(event.target.value),
@@ -392,14 +543,11 @@ async function initialize() {
             null,
             2,
         );
-        if (!companies.length) {
-            setActivity("The portfolio is empty.");
-            return;
-        }
-        await selectCompany(companies[0].symbol);
+        showOverview();
+        byId("screen-status").textContent = companies.length ? "Ready to screen." : "The portfolio is empty.";
     } catch (error) {
         showError(`${error.message} Reload the page to retry.`);
-        setActivity("Unable to load portfolio.");
+        byId("screen-status").textContent = "Unable to load portfolio.";
     }
 }
 initialize();

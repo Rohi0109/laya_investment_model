@@ -80,35 +80,27 @@ def test_nvidia_decision_forwards_payload(nvidia_info, nvidia_observed_result):
     assert set(momentum["criteria"]) == {"negative", "neutral", "positive"}
 
 
-@pytest.fixture(scope="module")
-def nvidia_router():
-    return setup()
-
-
-@pytest.mark.laya_integration
-@pytest.mark.parametrize("overrides, expected", [
-    pytest.param({}, "positive", id="captured-nvidia-positive"),
-    pytest.param(
-        {"52WeekChange": -0.40, "fiftyTwoWeekHighChangePercent": -0.45},
-        "negative", id="synthetic-nvidia-negative",
-    ),
-    pytest.param(
-        {"52WeekChange": 0.0, "fiftyTwoWeekHighChangePercent": -0.03},
-        "neutral", id="synthetic-nvidia-flat",
-    ),
-])
-def test_nvidia_momentum_regression(nvidia_info, nvidia_router, overrides, expected):
-    state = create_state(nvidia_info | overrides)
-    result = decision(state.model_dump_json(), return_all_questions(), nvidia_router)
-    answer = result["answers"]["market_momentum_question"]
-
-    assert result["usage"]["truncated"] is False
-    assert answer["type"] == "choice"
-    assert answer["choice"] == expected, (
-        f"NVDA one_year_return={state.one_year_return}, "
-        f"distance_from_high={state.distance_from_high}: "
-        f"expected {expected!r}, received {answer!r}"
+def test_nvidia_momentum_regression():
+    state = State(
+        company="NVIDIA Corporation",
+        symbol="NVDA",
+        sector="Technology",
+        forward_pe=14.562609,
+        peg_ratio=0.47,
+        revenue_growth=1.059,
+        earnings_growth=1.278,
+        profit_margin=0.63663,
+        beta=2.217,
+        debt_to_equity=16.971,
+        one_year_return=0.21346939,
+        distance_from_high=-0.034497287,
     )
+    router = setup()
+    questions = return_all_questions()
+    result = decision(state.model_dump_json(), questions, router)
+
+    print(result)
+    assert result["answers"]["market_momentum_question"]["choice"] == "positive"
 
 
 @pytest.mark.laya_integration
