@@ -162,6 +162,12 @@ function renderPortfolio() {
     byId("company-select").value = selected;
 }
 
+function priorityConfidence(symbol) {
+    const value = results.get(symbol)?.answers.research_priority_question?.answer_confidence;
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1
+        ? value : null;
+}
+
 function renderOverview() {
     byId("overview-count").textContent = companies.length;
     byId("overview-weight").textContent = formatMetric(
@@ -173,11 +179,34 @@ function renderOverview() {
     if (!companies.length) {
         const row = element("tr");
         const cell = element("td", "empty-holdings", "No holdings in this portfolio.");
-        cell.colSpan = 7;
+        cell.colSpan = 8;
         row.append(cell);
         rows.append(row);
     }
-    companies.forEach(({ symbol, weight }) => {
+    const sort = byId("screen-sort").value;
+    const priorityOrder = { investigate: 0, monitor: 1, ignore: 2 };
+    const priorityRank = (company) =>
+        priorityOrder[results.get(company.symbol)?.answers.research_priority_question?.choice] ?? 3;
+    const sortedCompanies = [...companies];
+    if (sort === "priority") {
+        sortedCompanies.sort((first, second) =>
+            priorityRank(first) - priorityRank(second) || second.weight - first.weight,
+        );
+    } else if (sort === "weight-desc" || sort === "weight-asc") {
+        sortedCompanies.sort((first, second) =>
+            sort === "weight-desc" ? second.weight - first.weight : first.weight - second.weight,
+        );
+    } else if (sort === "confidence-desc" || sort === "confidence-asc") {
+        sortedCompanies.sort((first, second) => {
+            const firstConfidence = priorityConfidence(first.symbol);
+            const secondConfidence = priorityConfidence(second.symbol);
+            if (firstConfidence === null) return secondConfidence === null ? 0 : 1;
+            if (secondConfidence === null) return -1;
+            return sort === "confidence-desc"
+                ? secondConfidence - firstConfidence : firstConfidence - secondConfidence;
+        });
+    }
+    sortedCompanies.forEach(({ symbol, weight }) => {
         const result = results.get(symbol);
         const row = element("tr");
         row.classList.toggle("screen-active", activeSymbol === symbol);
@@ -208,6 +237,14 @@ function renderOverview() {
             }
             cell.append(badge);
             row.append(cell);
+            if (name === "research_priority_question") {
+                const confidence = priorityConfidence(symbol);
+                const confidenceCell = element("td", "screen-confidence", confidence === null
+                    ? result ? "Unknown" : "Not run"
+                    : `${(confidence * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`);
+                confidenceCell.title = "Laya answer_confidence for research priority; not a verified probability of correctness.";
+                row.append(confidenceCell);
+            }
         });
         const error = screenErrors.get(symbol);
         const status = element("td", "screen-row-status", activeSymbol === symbol
@@ -498,6 +535,7 @@ document.querySelectorAll("[role=tab]").forEach((tab, index, tabs) => {
 byId("run").addEventListener("click", runAnalysis);
 byId("overview-nav").addEventListener("click", showOverview);
 byId("screen-portfolio").addEventListener("click", screenPortfolio);
+byId("screen-sort").addEventListener("change", renderOverview);
 byId("stop-screen").addEventListener("click", () => {
     stopRequested = true;
     byId("screen-status").textContent = `Stopping after ${activeSymbol}...`;

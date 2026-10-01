@@ -11,9 +11,9 @@
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css?v=portfolio-priority" />
+    <link rel="stylesheet" href="/static/styles.css?v=portfolio-confidence" />
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-    <script src="/static/app.js?v=portfolio-priority" defer></script>
+    <script src="/static/app.js?v=portfolio-confidence" defer></script>
 </head>
 
 <body>
@@ -76,8 +76,18 @@
                         <dd id="overview-screened">0 / 0</dd>
                     </div>
                 </dl>
-                <div class="section-heading">
-                    <h2>Holdings overview</h2><span class="code-label">Laya classifications</span>
+                <div class="section-heading screening-heading">
+                    <h2>Holdings overview</h2>
+                    <label class="screen-sort" for="screen-sort">Sort by
+                        <select id="screen-sort">
+                            <option value="portfolio">Portfolio order</option>
+                            <option value="priority">Research priority</option>
+                            <option value="weight-desc">Weight: high to low</option>
+                            <option value="weight-asc">Weight: low to high</option>
+                            <option value="confidence-desc">Confidence: high to low</option>
+                            <option value="confidence-asc">Confidence: low to high</option>
+                        </select>
+                    </label>
                 </div>
                 <div class="screen-status" id="screen-status" role="status" aria-live="polite">Loading portfolio...
                 </div>
@@ -88,6 +98,7 @@
                                 <th scope="col">Company</th>
                                 <th scope="col">Weight</th>
                                 <th scope="col">Research priority</th>
+                                <th scope="col" title="Laya answer_confidence for research priority; not a verified probability of correctness.">Priority confidence</th>
                                 <th scope="col">Growth</th>
                                 <th scope="col">Risk</th>
                                 <th scope="col">Momentum</th>
