@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -25,13 +26,28 @@ from utils.load_portfolio import load_portfolio
 
 ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
-app = FastAPI(title="Laya Investment Research")
 questions = return_research_questions()
 router = None
 model_status = "not_loaded"
 analysis_lock = Lock()
 snapshot_lock = Lock()
 snapshots = {}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global router, model_status
+    model_status = "loading"
+    try:
+        router = setup()
+        model_status = "ready"
+    except Exception:
+        model_status = "not_loaded"
+        logger.exception("Failed to preload Laya model at startup; will load lazily on first analysis")
+    yield
+
+
+app = FastAPI(title="Laya Investment Research", lifespan=lifespan)
 
 
 class AnalysisRequest(BaseModel):
@@ -134,6 +150,8 @@ def analyze(symbol: str, request: AnalysisRequest):
         snapshot = get_snapshot(symbol)
         setup_ms = 0
         preloaded = router is not None
+        # The model is preloaded at server startup (see lifespan()); this is a fallback
+        # for the rare case that preload failed or didn't run (e.g. under TestClient).
         if router is None:
             model_status = "loading"
             setup_started = perf_counter()

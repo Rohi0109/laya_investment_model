@@ -71,10 +71,12 @@ http://127.0.0.1:8000. The website uses the portfolio and question
 definitions above; the command-line entry point is unchanged.
 
 Select a company to fetch its fundamentals, then run analysis to call Laya.
-The first run preloads the English model and may download weights. The process
-reuses that router for later calls and accepts one analysis at a time. Market
-snapshots are cached until the refresh button is used or the server restarts.
-The displayed timestamp is the fetch time, not a market-data publication time.
+The model is preloaded when the server starts (may download weights, so the
+first `uv run uvicorn ...` can take a while to report "Application startup
+complete"), not on the first analysis click. The process reuses that router
+for later calls and accepts one analysis at a time. Market snapshots are
+cached until the refresh button is used or the server restarts. The displayed
+timestamp is the fetch time, not a market-data publication time.
 
 Laya call time measures routing plus prediction, excluding explicit model setup
 and market fetching. The server total includes work performed for that request.

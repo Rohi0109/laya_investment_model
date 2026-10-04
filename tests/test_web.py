@@ -80,6 +80,27 @@ def test_setup_failure_can_retry(client, monkeypatch):
     assert client.post("/api/analyze/NVDA", json=RESEARCH).status_code == 200
 
 
+def test_lifespan_preloads_model_on_startup(monkeypatch):
+    monkeypatch.setattr(web, "router", None)
+    monkeypatch.setattr(web, "model_status", "not_loaded")
+    sentinel = object()
+    monkeypatch.setattr(web, "setup", lambda: sentinel)
+    with TestClient(web.app) as client:
+        assert web.router is sentinel
+        assert client.get("/api/status").json()["model_status"] == "ready"
+
+
+def test_lifespan_handles_setup_failure(monkeypatch):
+    monkeypatch.setattr(web, "router", None)
+    monkeypatch.setattr(web, "model_status", "not_loaded")
+    def fail():
+        raise RuntimeError("Unavailable")
+    monkeypatch.setattr(web, "setup", fail)
+    with TestClient(web.app) as client:
+        assert web.router is None
+        assert client.get("/api/status").json()["model_status"] == "not_loaded"
+
+
 def test_missing_market_data(client, monkeypatch):
     monkeypatch.setattr(web, "obtain_ticker", lambda symbol: SimpleNamespace(info={}))
     assert client.get("/api/companies/NVDA").status_code == 502
