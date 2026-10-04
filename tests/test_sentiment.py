@@ -3,7 +3,12 @@ from unittest.mock import Mock, patch
 import pytest
 
 import ticker.obtain_sentiment as obtain_sentiment_module
-from ticker.obtain_sentiment import SentimentError, obtain_news_sentiment
+from ticker.obtain_sentiment import (
+    SentimentError,
+    obtain_news_sentiment,
+    obtain_top_articles,
+    obtain_top_articles_with_relevance,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -75,6 +80,55 @@ def test_limit_is_enforced_client_side_even_if_api_ignores_it(monkeypatch):
     with patch("ticker.obtain_sentiment.requests.get", return_value=response):
         text = obtain_news_sentiment("NVDA", limit=1)
     assert text == "A: a"
+
+
+def test_top_articles_returns_a_ranked_list(monkeypatch):
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY", "test-key")
+    response = Mock(status_code=200)
+    response.json.return_value = {
+        "feed": [
+            {"title": "A", "summary": "a", "ticker_sentiment": [{"ticker": "NVDA", "relevance_score": "0.1"}]},
+            {"title": "B", "summary": "b", "ticker_sentiment": [{"ticker": "NVDA", "relevance_score": "0.9"}]},
+            {"title": "C", "summary": "c", "ticker_sentiment": [{"ticker": "NVDA", "relevance_score": "0.5"}]},
+        ],
+    }
+    with patch("ticker.obtain_sentiment.requests.get", return_value=response):
+        articles = obtain_top_articles("NVDA", limit=3)
+    assert articles == ["B: b", "C: c", "A: a"]
+
+
+def test_top_articles_and_news_sentiment_share_a_cache_entry(monkeypatch):
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY", "test-key")
+    response = Mock(status_code=200)
+    response.json.return_value = {
+        "feed": [
+            {"title": "A", "summary": "a"},
+            {"title": "B", "summary": "b"},
+        ],
+    }
+    with patch("ticker.obtain_sentiment.requests.get", return_value=response) as get:
+        articles = obtain_top_articles("NVDA", limit=2)
+        text = obtain_news_sentiment("NVDA", limit=2)
+    assert articles == ["A: a", "B: b"]
+    assert text == "A: a\n\nB: b"
+    get.assert_called_once()
+
+
+def test_top_articles_with_relevance_exposes_scores(monkeypatch):
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY", "test-key")
+    response = Mock(status_code=200)
+    response.json.return_value = {
+        "feed": [
+            {"title": "A", "summary": "a", "ticker_sentiment": [{"ticker": "NVDA", "relevance_score": "0.9"}]},
+            {"title": "B", "summary": "b", "ticker_sentiment": [{"ticker": "NVDA", "relevance_score": "0.2"}]},
+        ],
+    }
+    with patch("ticker.obtain_sentiment.requests.get", return_value=response):
+        articles = obtain_top_articles_with_relevance("NVDA", limit=2)
+    assert articles == [
+        {"text": "A: a", "relevance": 0.9},
+        {"text": "B: b", "relevance": 0.2},
+    ]
 
 
 def test_caches_successful_fetch_without_repeat_api_call(monkeypatch):
@@ -170,4 +224,66 @@ def test_real_top_article_classified_by_laya():
     )
     result = decision(text, [question], router=Router())
     assert result["answers"]["news_sentiment"]["choice"] in {"positive", "negative", "neutral"}
+
+
+@pytest.mark.api_integration
+@pytest.mark.laya_integration
+def test_real_top_3_articles_each_classified_by_laya():
+    """Proves the top-3 relevance-ranked articles can each be classified on their own.
+
+    Hits the live Alpha Vantage API and loads the real model. Run with:
+    uv run pytest -m "api_integration and laya_integration" -v
+    """
+    from laya import Router
+
+    from laya_model.laya_model import decision_each
+    from models.choice_question import ChoiceQuestion
+
+    articles = obtain_top_articles("NVDA", limit=3)
+    assert 1 <= len(articles) <= 3
+    question = ChoiceQuestion(
+        name="news_sentiment",
+        instructions="What is the sentiment of this stock news?",
+        criteria={
+            "positive": "Favorable news",
+            "negative": "Unfavorable news",
+            "neutral": "Neither favorable nor unfavorable",
+        },
+    )
+    results = decision_each(articles, [question], router=Router())
+    assert len(results) == len(articles)
+    for result in results:
+        assert result["answers"]["news_sentiment"]["choice"] in {"positive", "negative", "neutral"}
+
+
+@pytest.mark.api_integration
+@pytest.mark.laya_integration
+def test_real_top_3_articles_aggregated_into_one_verdict():
+    """Proves the top-3 articles can be classified and then combined into one answer,
+    weighted by each article's own relevance score.
+
+    Hits the live Alpha Vantage API and loads the real model. Run with:
+    uv run pytest -m "api_integration and laya_integration" -v
+    """
+    from laya import Router
+
+    from laya_model.laya_model import aggregate_decisions, decision_each
+    from models.choice_question import ChoiceQuestion
+
+    articles = obtain_top_articles_with_relevance("NVDA", limit=3)
+    assert 1 <= len(articles) <= 3
+    question = ChoiceQuestion(
+        name="news_sentiment",
+        instructions="What is the sentiment of this stock news?",
+        criteria={
+            "positive": "Favorable news",
+            "negative": "Unfavorable news",
+            "neutral": "Neither favorable nor unfavorable",
+        },
+    )
+    texts = [article["text"] for article in articles]
+    weights = [article["relevance"] for article in articles]
+    results = decision_each(texts, [question], router=Router())
+    verdict = aggregate_decisions(results, weights)
+    assert verdict["answers"]["news_sentiment"]["choice"] in {"positive", "negative", "neutral"}
 

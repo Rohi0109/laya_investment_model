@@ -182,7 +182,7 @@ def test_sentiment_endpoint(client, monkeypatch):
         "research_text": "NVIDIA beats estimates: Revenue grew 20% YoY.",
         "cached": False,
     }
-    fetch.assert_called_once_with("NVDA")
+    fetch.assert_called_once_with("NVDA", limit=3)
     assert client.get("/api/sentiment/UNKNOWN").status_code == 404
 
 

@@ -41,7 +41,6 @@ let running = false;
 let selectionVersion = 0;
 const results = new Map();
 const researchDrafts = new Map();
-const quarterDrafts = new Map();
 const screenErrors = new Map();
 const analyzedAt = new Map();
 let screening = false;
@@ -92,31 +91,11 @@ function validResearch(text = "") {
     return text.trim().length > 0 && text.length <= 60000;
 }
 
-function validQuarter(text = "") {
-    return /^[0-9]{4}Q[1-4]$/.test(text.trim());
-}
-
-function defaultQuarterGuess() {
-    // Two calendar quarters back from today, past typical earnings-reporting lag.
-    // Calendar-aligned only; companies with offset fiscal years (e.g. NVIDIA) may need a different value.
-    const now = new Date();
-    let quarterIndex = Math.floor(now.getMonth() / 3) - 2;
-    let year = now.getFullYear();
-    while (quarterIndex < 0) {
-        quarterIndex += 4;
-        year -= 1;
-    }
-    return `${year}Q${quarterIndex + 1}`;
-}
-
 function updateControls() {
     const researchText = byId("research-text").value;
     byId("run").disabled = running || loading || !snapshot || !validResearch(researchText);
     byId("research-text").disabled = running || !selected;
     byId("research-count").textContent = `${researchText.length.toLocaleString()} / 60,000`;
-    byId("transcript-quarter").disabled = running || !selected;
-    byId("fetch-transcript").disabled = running || loading || !selected
-        || !validQuarter(byId("transcript-quarter").value);
     byId("fetch-sentiment").disabled = running || loading || !selected;
     byId("refresh").disabled = running || loading || !selected;
     byId("company-select").disabled = running;
@@ -454,7 +433,6 @@ async function selectCompany(symbol, refresh = false) {
     const version = ++selectionVersion;
     selected = symbol;
     byId("research-text").value = researchDrafts.get(symbol) || "";
-    byId("transcript-quarter").value = quarterDrafts.get(symbol) || defaultQuarterGuess();
     loading = true;
     snapshot = null;
     if (refresh) {
@@ -575,41 +553,6 @@ byId("research-text").addEventListener("input", () => {
     showError();
     updateControls();
     setActivity(validResearch(byId("research-text").value) ? "Excerpt ready. Awaiting analysis." : "Awaiting excerpt.");
-});
-byId("transcript-quarter").addEventListener("input", () => {
-    if (!selected || running) return;
-    quarterDrafts.set(selected, byId("transcript-quarter").value);
-    updateControls();
-});
-byId("fetch-transcript").addEventListener("click", async () => {
-    if (!selected || running || loading) return;
-    const symbol = selected;
-    const quarter = byId("transcript-quarter").value.trim();
-    if (!validQuarter(quarter)) return;
-    showError();
-    setActivity(`Fetching ${symbol} ${quarter} transcript...`);
-    byId("fetch-transcript").disabled = true;
-    try {
-        const { research_text, cached } = await request(
-            `/api/transcript/${encodeURIComponent(symbol)}?quarter=${encodeURIComponent(quarter)}`,
-        );
-        if (selected !== symbol) return;
-        byId("research-text").value = research_text;
-        researchDrafts.set(symbol, research_text);
-        results.delete(symbol);
-        screenErrors.delete(symbol);
-        analyzedAt.delete(symbol);
-        renderResult();
-        setActivity(
-            cached
-                ? "Transcript loaded from cache (no API call spent). Awaiting analysis."
-                : "Real transcript fetched. Awaiting analysis.",
-        );
-    } catch (error) {
-        if (selected === symbol) showError(error.message);
-    } finally {
-        updateControls();
-    }
 });
 byId("fetch-sentiment").addEventListener("click", async () => {
     if (!selected || running || loading) return;

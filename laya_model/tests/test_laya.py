@@ -8,7 +8,7 @@ from investment_question.investment_questions import (
     return_all_questions,
     return_research_questions,
 )
-from laya_model.laya_model import decision, decision_long
+from laya_model.laya_model import aggregate_decisions, decision, decision_each, decision_long
 from models.choice_question import ChoiceQuestion
 from models.state import ResearchState, State, create_state
 from setup.setup import setup
@@ -154,6 +154,46 @@ def test_nvidia_decision_forwards_payload(nvidia_info, nvidia_observed_result):
     momentum = router.predict.call_args.args[1]["market_momentum_question"]
     assert momentum["type"] == "choice"
     assert set(momentum["criteria"]) == {"negative", "neutral", "positive"}
+
+
+def test_decision_each_classifies_every_text_independently():
+    router = Mock(spec=Router)
+    router.predict.side_effect = [
+        {"answers": {"news_sentiment": {"type": "choice", "choice": "positive"}}},
+        {"answers": {"news_sentiment": {"type": "choice", "choice": "negative"}}},
+    ]
+    question = ChoiceQuestion(
+        name="news_sentiment",
+        instructions="What is the sentiment of this stock news?",
+        criteria={"positive": "Favorable news", "negative": "Unfavorable news", "neutral": "Neither"},
+    )
+    texts = ["Revenue beat estimates.", "Guidance was cut sharply."]
+
+    results = decision_each(texts, [question], router)
+
+    assert router.predict.call_count == 2
+    assert [call.args[0] for call in router.predict.call_args_list] == texts
+    assert [r["answers"]["news_sentiment"]["choice"] for r in results] == ["positive", "negative"]
+
+
+def test_aggregate_decisions_picks_the_relevance_weighted_winner():
+    results = [
+        {"answers": {"news_sentiment": {"type": "choice", "choice": "negative"}}},
+        {"answers": {"news_sentiment": {"type": "choice", "choice": "positive"}}},
+        {"answers": {"news_sentiment": {"type": "choice", "choice": "positive"}}},
+    ]
+    # A single highly-relevant "negative" article outweighs two barely-relevant "positive" ones.
+    weights = [0.9, 0.1, 0.1]
+
+    verdict = aggregate_decisions(results, weights)
+
+    assert verdict == {"answers": {"news_sentiment": {"type": "choice", "choice": "negative"}}}
+
+
+def test_aggregate_decisions_rejects_mismatched_lengths():
+    results = [{"answers": {"news_sentiment": {"type": "choice", "choice": "positive"}}}]
+    with pytest.raises(ValueError):
+        aggregate_decisions(results, weights=[0.5, 0.5])
 
 
 def test_nvidia_momentum_regression():

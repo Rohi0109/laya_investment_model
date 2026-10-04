@@ -115,9 +115,11 @@ def transcript(symbol: str, quarter: str):
 @app.get("/api/sentiment/{symbol}")
 def sentiment(symbol: str):
     symbol = check_symbol(symbol)
-    cached = sentiment_is_cached(symbol)
+    # Top 3 relevance-ranked articles: more research signal than just the single
+    # most-relevant one, while still far shorter than a full transcript.
+    cached = sentiment_is_cached(symbol, limit=3)
     try:
-        research_text = obtain_news_sentiment(symbol)
+        research_text = obtain_news_sentiment(symbol, limit=3)
     except SentimentError as exc:
         raise HTTPException(502, str(exc)) from exc
     return {"research_text": research_text, "cached": cached}
