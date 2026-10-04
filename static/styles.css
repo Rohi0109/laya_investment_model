@@ -23,7 +23,8 @@ body {
 }
 
 button,
-select {
+select,
+textarea {
     font: inherit;
 }
 
@@ -45,6 +46,7 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 summary:focus-visible {
     outline: 3px solid #479ad0;
     outline-offset: 4px;
@@ -332,6 +334,55 @@ button svg {
 
 .screen-choice.positive {
     color: #137445;
+}
+
+.screen-choice.assessed {
+    color: #275b83;
+}
+
+.research-input {
+    margin-top: 28px;
+}
+
+.research-input textarea {
+    display: block;
+    width: 100%;
+    min-height: 150px;
+    padding: 14px 16px;
+    resize: vertical;
+    border: 1px solid #d9e0dc;
+    border-radius: 5px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.transcript-fetch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.transcript-fetch label {
+    font: 11px var(--mono);
+    color: var(--muted);
+}
+
+.transcript-fetch input {
+    width: 90px;
+    padding: 6px 8px;
+    border: 1px solid #d9e0dc;
+    border-radius: 4px;
+    font: 12px var(--mono);
+}
+
+.fetch-transcript-button.fetch-transcript-button {
+    width: auto;
+    padding: 0 14px;
+    white-space: nowrap;
+    font-size: 12px;
 }
 
 .screen-choice.caution {
@@ -735,11 +786,14 @@ h2 {
 
 .choices {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--choice-columns, 3), minmax(0, 1fr));
     gap: 8px;
 }
 
 .choice {
+    display: grid;
+    align-items: center;
+    min-height: 38px;
     padding: 7px 4px;
     color: #8a938e;
     font: 11px var(--mono);
@@ -751,9 +805,9 @@ h2 {
 }
 
 .choice.chosen {
-    background: #e8f5ec;
-    color: #137445;
-    border-color: #b7ddc4;
+    background: #e9f2fa;
+    color: #275b83;
+    border-color: #b5d2eb;
     font-weight: 500;
 }
 
@@ -957,6 +1011,14 @@ pre {
     .topbar {
         padding: 0 20px;
         height: 65px;
+    }
+
+    .transcript-fetch {
+        flex-wrap: wrap;
+    }
+
+    .fetch-transcript-button.fetch-transcript-button {
+        flex: 1 0 auto;
     }
 
     .brand {

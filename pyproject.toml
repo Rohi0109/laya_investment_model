@@ -5,6 +5,8 @@ dependencies = [
     "laya>=0.3.22",
     "fastapi>=0.115",
     "uvicorn>=0.34",
+    "requests",
+    "python-dotenv",
 ]
 name = "finance"
 version = "0.1.0"
@@ -18,7 +20,8 @@ dev = ["pytest", "httpx>=0.28"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["laya_model/tests", "tests"]
-addopts = "-m 'not laya_integration'"
+addopts = "-m 'not laya_integration and not api_integration'"
 markers = [
     "laya_integration: runs real Laya inference using fixed inputs; may download model weights",
+    "api_integration: hits the real Alpha Vantage API; requires ALPHAVANTAGE_API_KEY and spends a real API call",
 ]

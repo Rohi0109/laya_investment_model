@@ -4,10 +4,13 @@ import pytest
 from laya import Router
 from pydantic import ValidationError
 
-from investment_question.investment_questions import return_all_questions
-from laya_model.laya_model import decision
+from investment_question.investment_questions import (
+    return_all_questions,
+    return_research_questions,
+)
+from laya_model.laya_model import decision, decision_long
 from models.choice_question import ChoiceQuestion
-from models.state import State, create_state
+from models.state import ResearchState, State, create_state
 from setup.setup import setup
 
 
@@ -44,6 +47,79 @@ def test_return_all_questions():
     ]
     assert all(isinstance(question, ChoiceQuestion) for question in questions)
     assert all(len(question.criteria) == 3 for question in questions)
+
+
+def test_research_state():
+    state = ResearchState(company="NVIDIA", research_text="  Margins are expanding.  ")
+    assert state.research_text == "Margins are expanding."
+    assert ResearchState.model_validate_json(state.model_dump_json()) == state
+    assert len(ResearchState(research_text="a" * 60000).research_text) == 60000
+    for text in ["", "   ", "a" * 60001]:
+        with pytest.raises(ValidationError):
+            ResearchState(research_text=text)
+    with pytest.raises(ValidationError):
+        ResearchState.model_validate({})
+
+
+def test_research_questions():
+    # financial_pressure_question and valuation_assessment_question are excluded: real-transcript
+    # testing showed the model answers them unreliably.
+    questions = return_research_questions()
+    assert [question.name for question in questions] == [
+        "growth_outlook_question", "profitability_outlook_question",
+    ]
+    assert all(isinstance(question, ChoiceQuestion) for question in questions)
+    assert all("unknown" in question.instructions.lower() for question in questions)
+    assert [set(question.criteria) for question in questions] == [
+        {"improving", "stable", "deteriorating", "not_discussed"},
+        {"expanding", "stable", "compressing", "not_discussed"},
+    ]
+
+
+def test_research_decision_forwards_payload(nvidia_info):
+    router = Mock(spec=Router)
+    state = ResearchState(**create_state(nvidia_info).model_dump(), research_text="Margins are expanding.")
+    questions = return_research_questions()
+    result = decision_long(state.model_dump_json(), questions, router)
+    router.predict_long.assert_called_once_with(
+        state.model_dump_json(),
+        {question.name: question.model_dump(exclude={"name"}) for question in questions},
+    )
+    assert result is router.predict_long.return_value
+
+
+def test_nvidia_research_classification():
+    """A fictional excerpt with explicit financial claims, not an actual NVIDIA report."""
+    state = ResearchState(
+        company="NVIDIA Corporation",
+        symbol="NVDA",
+        sector="Technology",
+        forward_pe=14.562609,
+        peg_ratio=0.47,
+        revenue_growth=1.059,
+        earnings_growth=1.278,
+        profit_margin=0.63663,
+        beta=2.217,
+        debt_to_equity=16.971,
+        one_year_return=0.21346939,
+        distance_from_high=-0.034497287,
+        research_text=(
+            "NVIDIA's revenue growth is accelerating as customer demand strengthens. "
+            "Management raised its growth outlook. Operating margins are expected to expand "
+            "as pricing power and operating leverage improve. Strong free cash flow and ample "
+            "liquidity comfortably cover debt obligations, with no funding pressure. "
+            "However, the shares look expensive relative to peers and estimated fair value; "
+            "the valuation requires unusually optimistic assumptions."
+        ),
+    )
+    router = setup()
+    result = decision_long(state.model_dump_json(), return_research_questions(), router)
+    print(result)
+    assert not result["usage"]["truncated"]
+    assert {name: answer["choice"] for name, answer in result["answers"].items()} == {
+        "growth_outlook_question": "improving",
+        "profitability_outlook_question": "expanding",
+    }
 
 
 def test_nvidia_snapshot_units(nvidia_info):

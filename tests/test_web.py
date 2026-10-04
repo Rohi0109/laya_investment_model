@@ -5,8 +5,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import web
-from laya_model.laya_model import decision
-from models.state import State, create_state
+from laya_model.laya_model import decision_long
+from models.state import ResearchState, create_state
+
+RESEARCH = {"research_text": "Management raised its growth outlook and expects expanding operating margins."}
 
 
 @pytest.fixture
@@ -19,7 +21,7 @@ def client(monkeypatch):
         "symbol": symbol, "longName": "NVIDIA", "revenueGrowth": 0.55,
     }))
     monkeypatch.setattr(web, "setup", lambda: object())
-    monkeypatch.setattr(web, "decision", lambda *args: {"answers": {
+    monkeypatch.setattr(web, "decision_long", lambda *args: {"answers": {
         question.name: {"type": "choice", "choice": next(iter(question.criteria))}
         for question in web.questions
     }})
@@ -27,7 +29,9 @@ def client(monkeypatch):
 
 
 def test_portfolio_and_snapshot(client):
-    assert len(client.get("/api/portfolio").json()["questions"]) == 6
+    assert [question["name"] for question in client.get("/api/portfolio").json()["questions"]] == [
+        "growth_outlook_question", "profitability_outlook_question",
+    ]
     snapshot = client.get("/api/companies/NVDA").json()
     assert snapshot["state"]["revenue_growth"] == 0.55
     assert snapshot["state"]["beta"] is None
@@ -38,14 +42,14 @@ def test_portfolio_and_snapshot(client):
 def test_analysis_reuses_router(client, monkeypatch):
     setups = []
     monkeypatch.setattr(web, "setup", lambda: setups.append(True) or object())
-    first = client.post("/api/analyze/NVDA")
+    first = client.post("/api/analyze/NVDA", json=RESEARCH)
     assert first.status_code == 200
     result = first.json()
     assert result["validated"] is True
-    assert len(result["answers"]) == 6
+    assert len(result["answers"]) == 2
     assert result["timing"]["laya_ms"] >= 0
     assert result["timing"]["model_preloaded"] is False
-    second = client.post("/api/analyze/NVDA").json()
+    second = client.post("/api/analyze/NVDA", json=RESEARCH).json()
     assert second["timing"]["model_preloaded"] is True
     assert second["timing"]["setup_ms"] == 0
     assert len(setups) == 1
@@ -55,54 +59,142 @@ def test_analysis_reuses_router(client, monkeypatch):
     question.name: {"type": "choice", "choice": "buy"} for question in web.questions
 }}])
 def test_rejects_invalid_answers(client, monkeypatch, invalid):
-    monkeypatch.setattr(web, "decision", lambda *args: invalid)
-    assert client.post("/api/analyze/NVDA").status_code == 502
+    monkeypatch.setattr(web, "decision_long", lambda *args: invalid)
+    assert client.post("/api/analyze/NVDA", json=RESEARCH).status_code == 502
     assert not web.analysis_lock.locked()
 
 
 def test_busy_and_unknown(client):
-    assert client.post("/api/analyze/UNKNOWN").status_code == 404
+    assert client.post("/api/analyze/UNKNOWN", json=RESEARCH).status_code == 404
     with web.analysis_lock:
-        assert client.post("/api/analyze/NVDA").status_code == 409
+        assert client.post("/api/analyze/NVDA", json=RESEARCH).status_code == 409
 
 
 def test_setup_failure_can_retry(client, monkeypatch):
     def fail():
         raise RuntimeError("Unavailable")
     monkeypatch.setattr(web, "setup", fail)
-    assert client.post("/api/analyze/NVDA").status_code == 503
+    assert client.post("/api/analyze/NVDA", json=RESEARCH).status_code == 503
     assert client.get("/api/status").json()["model_status"] == "not_loaded"
     monkeypatch.setattr(web, "setup", lambda: object())
-    assert client.post("/api/analyze/NVDA").status_code == 200
+    assert client.post("/api/analyze/NVDA", json=RESEARCH).status_code == 200
 
 
 def test_missing_market_data(client, monkeypatch):
     monkeypatch.setattr(web, "obtain_ticker", lambda symbol: SimpleNamespace(info={}))
     assert client.get("/api/companies/NVDA").status_code == 502
-    assert client.post("/api/analyze/NVDA").status_code == 502
+    assert client.post("/api/analyze/NVDA", json=RESEARCH).status_code == 502
 
 
-def test_nvidia_analysis_replays_observed_answer(
-    client, monkeypatch, nvidia_info, nvidia_observed_result,
-):
+def test_nvidia_analysis_forwards_research(client, monkeypatch, nvidia_info):
     ticker = Mock(return_value=SimpleNamespace(info=nvidia_info))
     router = Mock()
-    router.predict.return_value = nvidia_observed_result
+    expected = {"answers": {
+        question.name: {"type": "choice", "choice": next(iter(question.criteria))}
+        for question in web.questions
+    }}
+    router.predict_long.return_value = expected
     monkeypatch.setattr(web, "obtain_ticker", ticker)
     monkeypatch.setattr(web, "setup", lambda: router)
-    monkeypatch.setattr(web, "decision", decision)
+    monkeypatch.setattr(web, "decision_long", decision_long)
 
     snapshot = client.get("/api/companies/NVDA").json()
-    response = client.post("/api/analyze/NVDA")
+    response = client.post("/api/analyze/NVDA", json={"research_text": f"  {RESEARCH['research_text']}  "})
 
     assert response.status_code == 200
     result = response.json()
     ticker.assert_called_once_with("NVDA")
-    router.predict.assert_called_once()
-    sent_state = State.model_validate_json(router.predict.call_args.args[0])
-    assert sent_state == create_state(nvidia_info)
+    router.predict_long.assert_called_once()
+    sent_state = ResearchState.model_validate_json(router.predict_long.call_args.args[0])
+    assert sent_state.research_text == RESEARCH["research_text"]
+    assert result["research_text"] == sent_state.research_text
+    assert sent_state.model_dump(exclude={"research_text"}) == create_state(nvidia_info).model_dump()
     assert result["snapshot"] == snapshot
-    assert result["snapshot"]["state"] == sent_state.model_dump()
-    assert result["raw"] == nvidia_observed_result
-    assert result["answers"]["market_momentum_question"]["choice"] == "negative"
+    assert result["snapshot"]["state"] == sent_state.model_dump(exclude={"research_text"})
+    assert result["raw"] == expected
+    assert result["answers"]["growth_outlook_question"]["choice"] == "improving"
     assert result["validated"] is True
+
+
+def test_rejects_missing_or_invalid_research(client, monkeypatch):
+    predict = Mock()
+    monkeypatch.setattr(web, "decision_long", predict)
+    assert client.post("/api/analyze/NVDA").status_code == 422
+    for text in ["", "   ", "a" * 60001]:
+        assert client.post("/api/analyze/NVDA", json={"research_text": text}).status_code == 422
+    predict.assert_not_called()
+    assert web.router is None
+
+
+def test_rejects_truncated_research(client, monkeypatch):
+    for usage in [{"truncated": True}, {"state_tokens_dropped": 1}, {"truncated_questions": ["growth_outlook_question"]}]:
+        monkeypatch.setattr(web, "decision_long", Mock(return_value={"usage": usage}))
+        response = client.post("/api/analyze/NVDA", json=RESEARCH)
+        assert response.status_code == 422
+        assert "Shorten" in response.json()["detail"]
+        assert not web.analysis_lock.locked()
+
+
+def test_changed_research_is_sent_to_model(client, monkeypatch):
+    predict = Mock(wraps=web.decision_long)
+    monkeypatch.setattr(web, "decision_long", predict)
+    for text in [RESEARCH["research_text"], "Management lowered its growth outlook."]:
+        assert client.post("/api/analyze/NVDA", json={"research_text": text}).status_code == 200
+        assert ResearchState.model_validate_json(predict.call_args.args[0]).research_text == text
+    assert predict.call_count == 2
+
+
+def test_transcript_endpoint(client, monkeypatch):
+    fetch = Mock(return_value="Speaker: Management raised its growth outlook.")
+    monkeypatch.setattr(web, "obtain_transcript", fetch)
+    monkeypatch.setattr(web, "is_cached", Mock(return_value=False))
+    response = client.get("/api/transcript/NVDA", params={"quarter": "2024Q1"})
+    assert response.status_code == 200
+    assert response.json() == {
+        "research_text": "Speaker: Management raised its growth outlook.",
+        "cached": False,
+    }
+    fetch.assert_called_once_with("NVDA", "2024Q1")
+    assert client.get("/api/transcript/UNKNOWN", params={"quarter": "2024Q1"}).status_code == 404
+
+
+def test_transcript_endpoint_reports_whether_cached(client, monkeypatch):
+    monkeypatch.setattr(web, "obtain_transcript", Mock(return_value="cached text"))
+    monkeypatch.setattr(web, "is_cached", Mock(return_value=True))
+    response = client.get("/api/transcript/NVDA", params={"quarter": "2024Q1"})
+    assert response.json()["cached"] is True
+
+
+def test_transcript_endpoint_reports_fetch_failure(client, monkeypatch):
+    monkeypatch.setattr(web, "obtain_transcript", Mock(side_effect=web.TranscriptError("no transcript")))
+    response = client.get("/api/transcript/NVDA", params={"quarter": "2024Q1"})
+    assert response.status_code == 502
+    assert "no transcript" in response.json()["detail"]
+
+
+def test_sentiment_endpoint(client, monkeypatch):
+    fetch = Mock(return_value="NVIDIA beats estimates: Revenue grew 20% YoY.")
+    monkeypatch.setattr(web, "obtain_news_sentiment", fetch)
+    monkeypatch.setattr(web, "sentiment_is_cached", Mock(return_value=False))
+    response = client.get("/api/sentiment/NVDA")
+    assert response.status_code == 200
+    assert response.json() == {
+        "research_text": "NVIDIA beats estimates: Revenue grew 20% YoY.",
+        "cached": False,
+    }
+    fetch.assert_called_once_with("NVDA")
+    assert client.get("/api/sentiment/UNKNOWN").status_code == 404
+
+
+def test_sentiment_endpoint_reports_whether_cached(client, monkeypatch):
+    monkeypatch.setattr(web, "obtain_news_sentiment", Mock(return_value="cached text"))
+    monkeypatch.setattr(web, "sentiment_is_cached", Mock(return_value=True))
+    response = client.get("/api/sentiment/NVDA")
+    assert response.json()["cached"] is True
+
+
+def test_sentiment_endpoint_reports_fetch_failure(client, monkeypatch):
+    monkeypatch.setattr(web, "obtain_news_sentiment", Mock(side_effect=web.SentimentError("no news")))
+    response = client.get("/api/sentiment/NVDA")
+    assert response.status_code == 502
+    assert "no news" in response.json()["detail"]

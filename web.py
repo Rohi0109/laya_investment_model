@@ -5,28 +5,37 @@ from threading import Lock
 from time import perf_counter
 from typing import Literal
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from investment_question.investment_questions import return_all_questions
-from laya_model.laya_model import decision
-from models.state import State, create_state
+load_dotenv()
+
+from investment_question.investment_questions import return_research_questions
+from laya_model.laya_model import decision_long
+from models.state import ResearchState, ResearchText, create_state
 from setup.setup import setup
+from ticker.obtain_sentiment import SentimentError, is_cached as sentiment_is_cached, obtain_news_sentiment
 from ticker.obtain_ticker import obtain_ticker
+from ticker.obtain_transcript import TranscriptError, is_cached, obtain_transcript
 from utils.load_portfolio import load_portfolio
 
 
 ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
 app = FastAPI(title="Laya Investment Research")
-questions = return_all_questions()
+questions = return_research_questions()
 router = None
 model_status = "not_loaded"
 analysis_lock = Lock()
 snapshot_lock = Lock()
 snapshots = {}
+
+
+class AnalysisRequest(BaseModel):
+    research_text: ResearchText
 
 
 class ChoiceAnswer(BaseModel):
@@ -92,8 +101,30 @@ def company(symbol: str, refresh: bool = False):
     return get_snapshot(check_symbol(symbol), refresh)
 
 
+@app.get("/api/transcript/{symbol}")
+def transcript(symbol: str, quarter: str):
+    symbol = check_symbol(symbol)
+    cached = is_cached(symbol, quarter)
+    try:
+        research_text = obtain_transcript(symbol, quarter)
+    except TranscriptError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {"research_text": research_text, "cached": cached}
+
+
+@app.get("/api/sentiment/{symbol}")
+def sentiment(symbol: str):
+    symbol = check_symbol(symbol)
+    cached = sentiment_is_cached(symbol)
+    try:
+        research_text = obtain_news_sentiment(symbol)
+    except SentimentError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {"research_text": research_text, "cached": cached}
+
+
 @app.post("/api/analyze/{symbol}")
-def analyze(symbol: str):
+def analyze(symbol: str, request: AnalysisRequest):
     global router, model_status
     symbol = check_symbol(symbol)
     if not analysis_lock.acquire(blocking=False):
@@ -113,10 +144,15 @@ def analyze(symbol: str):
                 raise
             setup_ms = round((perf_counter() - setup_started) * 1000, 2)
             model_status = "ready"
-        state = State.model_validate(snapshot["state"])
+        state = ResearchState(**snapshot["state"], research_text=request.research_text)
         inference_started = perf_counter()
-        result = decision(state.model_dump_json(), questions, router)
+        result = decision_long(state.model_dump_json(), questions, router)
         inference_ms = round((perf_counter() - inference_started) * 1000, 2)
+        usage = result.get("usage") if isinstance(result, dict) else None
+        if isinstance(usage, dict) and (
+            usage.get("truncated") or usage.get("state_tokens_dropped") or usage.get("truncated_questions")
+        ):
+            raise HTTPException(422, "The excerpt exceeded the model context. Shorten it and retry.")
         try:
             answers = validate_answers(result)
         except (ValueError, ValidationError, TypeError, AttributeError) as exc:
@@ -124,6 +160,7 @@ def analyze(symbol: str):
         return {
             "symbol": symbol,
             "snapshot": snapshot,
+            "research_text": state.research_text,
             "answers": answers,
             "validated": True,
             "raw": result,

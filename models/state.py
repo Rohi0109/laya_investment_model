@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Annotated
+
+from pydantic import BaseModel, StringConstraints
 
 
 class State(BaseModel):
@@ -14,6 +16,15 @@ class State(BaseModel):
     debt_to_equity: float | None = None
     one_year_return: float | None = None
     distance_from_high: float | None = None
+
+
+ResearchText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60000)
+]
+
+
+class ResearchState(State):
+    research_text: ResearchText
 
 
 def create_state(ticker_info: dict) -> State:

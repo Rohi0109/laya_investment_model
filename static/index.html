@@ -5,21 +5,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f8fa" />
-    <title>Laya / Investment Research</title>
+    <title>Laya / Transcript Research</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css?v=portfolio-confidence" />
+    <link rel="stylesheet" href="/static/styles.css?v=real-transcripts8" />
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-    <script src="/static/app.js?v=portfolio-confidence" defer></script>
+    <script src="/static/app.js?v=real-transcripts8" defer></script>
 </head>
 
 <body>
     <header class="topbar">
         <a class="brand" href="/" aria-label="Laya home"><span class="brand-mark">l.</span> laya<span
-                class="brand-divider">/</span><span class="app-name">Investment Research</span></a>
+                class="brand-divider">/</span><span class="app-name">Transcript Research</span></a>
         <div class="connection">
             <span class="status-dot" id="model-dot"></span><span id="model-status">Model not loaded</span>
         </div>
@@ -39,10 +39,11 @@
             <nav id="portfolio" aria-label="Select company"></nav>
             <label class="mobile-picker" for="company-select">Company<select id="company-select"></select></label>
             <div class="sidebar-footer">
-                <span class="eyebrow">RESEARCH ENGINE</span><strong>Laya</strong><span>6 questions. One model
+                <span class="eyebrow">RESEARCH ENGINE</span><strong>Laya</strong><span><span
+                        id="question-count">4</span> questions. One model
                     call.</span>
                 <div class="engine-rule"></div>
-                <span>Live market fundamentals<br />Constrained choice outputs</span>
+                <span>Transcript research<br />Constrained choice outputs</span>
             </div>
         </aside>
         <main>
@@ -58,7 +59,7 @@
                         <button class="icon-button" id="stop-screen" type="button" title="Stop after current company"
                             aria-label="Stop after current company" hidden><i data-lucide="square"></i></button>
                         <button class="run-button" id="screen-portfolio" type="button" disabled>
-                            <i data-lucide="scan-line"></i><span>Screen portfolio</span>
+                            <i data-lucide="scan-line"></i><span>Analyze excerpts</span>
                         </button>
                     </div>
                 </div>
@@ -81,11 +82,10 @@
                     <label class="screen-sort" for="screen-sort">Sort by
                         <select id="screen-sort">
                             <option value="portfolio">Portfolio order</option>
-                            <option value="priority">Research priority</option>
                             <option value="weight-desc">Weight: high to low</option>
                             <option value="weight-asc">Weight: low to high</option>
-                            <option value="confidence-desc">Confidence: high to low</option>
-                            <option value="confidence-asc">Confidence: low to high</option>
+                            <option value="confidence-desc">Growth confidence: high to low</option>
+                            <option value="confidence-asc">Growth confidence: low to high</option>
                         </select>
                     </label>
                 </div>
@@ -97,13 +97,13 @@
                             <tr>
                                 <th scope="col">Company</th>
                                 <th scope="col">Weight</th>
-                                <th scope="col">Research priority</th>
+                                <th scope="col">Growth outlook</th>
                                 <th scope="col"
-                                    title="Laya answer_confidence for research priority; not a verified probability of correctness.">
-                                    Priority confidence</th>
-                                <th scope="col">Growth</th>
-                                <th scope="col">Risk</th>
-                                <th scope="col">Momentum</th>
+                                    title="Laya answer_confidence for growth outlook; not a verified probability of correctness.">
+                                    Growth confidence</th>
+                                <th scope="col">Profitability</th>
+                                <th scope="col">Financial pressure</th>
+                                <th scope="col">Valuation</th>
                                 <th scope="col">Last analysis</th>
                             </tr>
                         </thead>
@@ -132,6 +132,27 @@
                         </button>
                     </div>
                 </section>
+                <section class="research-input" aria-labelledby="research-heading">
+                    <div class="section-heading">
+                        <h2 id="research-heading"><label for="research-text">Transcript excerpt</label></h2>
+                        <span class="code-label" id="research-count">0 / 60,000</span>
+                    </div>
+                    <div class="transcript-fetch">
+                        <label for="transcript-quarter">Fiscal quarter</label>
+                        <input id="transcript-quarter" type="text" placeholder="2024Q1" maxlength="6"
+                            pattern="[0-9]{4}Q[1-4]" disabled />
+                        <button class="icon-button fetch-transcript-button" id="fetch-transcript" type="button"
+                            disabled>
+                            <i data-lucide="download"></i><span>Fetch real transcript</span>
+                        </button>
+                        <button class="icon-button fetch-transcript-button" id="fetch-sentiment" type="button"
+                            disabled>
+                            <i data-lucide="newspaper"></i><span>Fetch news sentiment</span>
+                        </button>
+                    </div>
+                    <textarea id="research-text" rows="6" maxlength="60000" required disabled
+                        placeholder="Earnings-call excerpt or analyst note"></textarea>
+                </section>
                 <div class="activity" role="status" aria-live="polite">
                     <span class="activity-dot" id="activity-dot"></span><span id="activity-text">Loading
                         portfolio...</span><span id="elapsed"></span>
@@ -147,14 +168,15 @@
                     <div class="metric">
                         <span class="eyebrow">DECISIONS</span>
                         <div class="metric-value">
-                            <span id="decision-count">0</span><span class="unit">/ 6</span>
+                            <span id="decision-count">0</span><span class="unit">/ <span
+                                    id="decision-total">4</span></span>
                         </div>
                         <span class="metric-note">Single request</span>
                     </div>
                     <div class="metric">
                         <span class="eyebrow">OUTPUT CONTRACT</span>
                         <div class="contract-status" id="contract-status">Awaiting run</div>
-                        <span class="metric-note" id="contract-note">6 constrained choice fields</span>
+                        <span class="metric-note" id="contract-note">4 constrained choice fields</span>
                     </div>
                     <div class="metric">
                         <span class="eyebrow">MODEL STATE</span>
@@ -164,7 +186,7 @@
                 </section>
                 <section class="decisions-section" aria-labelledby="decisions-heading">
                     <div class="section-heading">
-                        <h2 id="decisions-heading">Decision output</h2>
+                        <h2 id="decisions-heading">Financial assessment</h2>
                         <span class="code-label">type: choice</span>
                     </div>
                     <div class="table-heading">
@@ -202,7 +224,7 @@
                 </section>
             </div>
             <footer class="page-footer">
-                <span>LAYA / RESEARCH LAB</span><span>Research prioritization only. Not investment advice.</span>
+                <span>LAYA / RESEARCH LAB</span><span>Research only. Not investment advice.</span>
             </footer>
         </main>
     </div>

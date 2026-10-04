@@ -48,6 +48,17 @@ These are model-quality assertions and can fail while the offline tests pass;
 they are not marked as expected failures or silently corrected. The first run
 may download weights; model inference and timing depend on the local runtime.
 
+Run the real Alpha Vantage API (requires `ALPHAVANTAGE_API_KEY` in `.env`) separately:
+
+```sh
+uv run pytest -m api_integration -v
+```
+
+This spends real API calls and hits Alpha Vantage's free-tier rate limit if run
+back-to-back with other integration tests, so it is excluded from the default
+run and run on its own.
+
+
 The 2026-09-30 local run reproduced `negative` for all three cases: the negative
 case passed, while the captured positive and synthetic neutral cases failed.
 Production prompts and inputs have not been changed to hide these failures.
@@ -55,7 +66,8 @@ Production prompts and inputs have not been changed to hide these failures.
 ## Website
 
 From the project root, run `uv run uvicorn web:app --host 127.0.0.1 --port 8000`
-and open http://127.0.0.1:8000. The website uses the portfolio and question
+(or `make dev` for the same command with auto-reload) and open
+http://127.0.0.1:8000. The website uses the portfolio and question
 definitions above; the command-line entry point is unchanged.
 
 Select a company to fetch its fundamentals, then run analysis to call Laya.
