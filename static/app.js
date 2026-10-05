@@ -172,7 +172,7 @@ function choiceSentiment(questionName, choice) {
     }
     if (choice === positiveChoices[questionName]) return "positive";
     if (choice === negativeChoices[questionName]) return "negative";
-    return "neutral";
+    return null;
 }
 
 function renderArticleSignals(symbol) {
@@ -184,23 +184,34 @@ function renderArticleSignals(symbol) {
     const body = byId("article-signals-body");
     body.replaceChildren();
     const table = element("table", "signals-table");
+    table.setAttribute("role", "table");
     const thead = element("thead");
+    thead.setAttribute("role", "rowgroup");
     const headerRow = element("tr");
+    headerRow.setAttribute("role", "row");
     headerRow.append(element("th", "signals-th-rel", "Relevance"));
     headerRow.append(element("th", "signals-th-headline", "Headline"));
     articleQuestions.forEach(({ name }) => {
         headerRow.append(element("th", "", labels[name] || name));
     });
+    headerRow.querySelectorAll("th").forEach((header) => {
+        header.setAttribute("role", "columnheader");
+        header.scope = "col";
+    });
     thead.append(headerRow);
     table.append(thead);
     const tbody = element("tbody");
+    tbody.setAttribute("role", "rowgroup");
     const columnCount = 2 + articleQuestions.length;
     newsData.articles.forEach((article, index) => {
         const row = element("tr", "signals-article-row");
+        row.setAttribute("role", "row");
         const relCell = element("td", "signals-rel-cell");
         const dot = element("span", "relevance-dot");
         dot.classList.add(article.relevance >= 0.8 ? "rel-high" : article.relevance >= 0.5 ? "rel-mid" : "rel-low");
-        relCell.append(dot, element("span", "relevance-score", article.relevance.toFixed(2)));
+        const relevanceLabel = element("span", "mobile-signal-label", "Relevance");
+        relevanceLabel.setAttribute("aria-hidden", "true");
+        relCell.append(relevanceLabel, dot, element("span", "relevance-score", article.relevance.toFixed(2)));
         row.append(relCell);
         const rawHeadline = article.text.split(":")[0] || article.text;
         const headlineCell = element("td", "signals-headline");
@@ -219,6 +230,9 @@ function renderArticleSignals(symbol) {
         articleQuestions.forEach(({ name }) => {
             const choice = article.answers?.[name]?.choice;
             const cell = element("td");
+            const mobileLabel = element("span", "mobile-signal-label", labels[name] || name);
+            mobileLabel.setAttribute("aria-hidden", "true");
+            cell.append(mobileLabel);
             const badge = element("span", "screen-choice", choiceLabel(name, choice) || "—");
             if (choice) {
                 badge.classList.add("assessed");
@@ -230,10 +244,13 @@ function renderArticleSignals(symbol) {
             cell.append(badge);
             row.append(cell);
         });
+        row.querySelectorAll("td").forEach((cell) => cell.setAttribute("role", "cell"));
         tbody.append(row);
         if (expanded.has(index)) {
             const detailRow = element("tr", "signals-detail-row");
+            detailRow.setAttribute("role", "row");
             const detailCell = element("td", "signals-detail-cell", article.text);
+            detailCell.setAttribute("role", "cell");
             detailCell.colSpan = columnCount;
             detailRow.append(detailCell);
             tbody.append(detailRow);
@@ -292,7 +309,9 @@ function renderOverview() {
         button.append(image, identity);
         button.addEventListener("click", () => selectCompany(symbol));
         company.append(button);
-        row.append(company, element("td", "screen-weight", formatMetric(weight, "fraction")));
+        const weightCell = element("td", "screen-weight", formatMetric(weight, "fraction"));
+        weightCell.style.setProperty("--holding-weight", `${Math.min(100, Math.max(0, weight * 100))}%`);
+        row.append(company, weightCell);
         articleQuestions.forEach(({ name }) => {
             const value = result?.answers[name]?.choice;
             const cell = element("td");
