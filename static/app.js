@@ -16,10 +16,8 @@ const names = {
     KO: "Coca-Cola",
 };
 const labels = {
-    growth_outlook_question: "Growth outlook",
-    profitability_outlook_question: "Profitability outlook",
-    financial_pressure_question: "Financial pressure",
-    valuation_assessment_question: "Valuation assessment",
+    market_reaction_question: "Market reaction",
+    materiality_question: "Materiality",
 };
 const metrics = [
     ["forward_pe", "Forward P/E", "ratio"],
@@ -33,14 +31,15 @@ const metrics = [
     ["distance_from_high", "From 52-week high", "fraction"],
 ];
 let companies = [];
-let questions = [];
+let articleQuestions = [];
 let selected = "";
 let snapshot = null;
 let loading = false;
 let running = false;
 let selectionVersion = 0;
 const results = new Map();
-const researchDrafts = new Map();
+const newsResults = new Map();
+const expandedArticles = new Map();
 const screenErrors = new Map();
 const analyzedAt = new Map();
 let screening = false;
@@ -87,16 +86,8 @@ function setActivity(message) {
     byId("activity-dot").classList.toggle("running", running || loading);
 }
 
-function validResearch(text = "") {
-    return text.trim().length > 0 && text.length <= 60000;
-}
-
 function updateControls() {
-    const researchText = byId("research-text").value;
-    byId("run").disabled = running || loading || !snapshot || !validResearch(researchText);
-    byId("research-text").disabled = running || !selected;
-    byId("research-count").textContent = `${researchText.length.toLocaleString()} / 60,000`;
-    byId("fetch-sentiment").disabled = running || loading || !selected;
+    byId("analyze-news").disabled = running || loading || !selected;
     byId("refresh").disabled = running || loading || !selected;
     byId("company-select").disabled = running;
     document.querySelectorAll(".holding").forEach((button) => {
@@ -106,18 +97,11 @@ function updateControls() {
         button.disabled = running;
     });
     byId("overview-nav").disabled = running;
-    byId("screen-portfolio").disabled = running || loading || !companies.some(
-        ({ symbol }) => validResearch(researchDrafts.get(symbol)),
-    );
+    byId("screen-portfolio").disabled = running || loading || !companies.length;
     byId("screen-portfolio").querySelector("span").textContent = screening
-        ? "Analyzing..." : "Analyze excerpts";
+        ? "Analyzing..." : "Analyze news";
     byId("stop-screen").hidden = !screening;
     byId("stop-screen").disabled = stopRequested;
-    byId("run").querySelector("span").textContent = running
-        ? "Analyzing..."
-        : results.has(selected)
-            ? "Run again"
-            : "Run analysis";
 }
 
 async function updateStatus() {
@@ -177,6 +161,121 @@ function answerConfidence(answer) {
         ? value : null;
 }
 
+const positiveChoices = {
+    market_reaction_question: "bullish",
+};
+const negativeChoices = {
+    market_reaction_question: "bearish",
+};
+const unassessedChoices = {
+    market_reaction_question: "not_discussed",
+    materiality_question: "unclear",
+};
+
+function choiceSentiment(questionName, choice) {
+    if (!choice || choice === unassessedChoices[questionName]) return null;
+    if (questionName === "materiality_question") {
+        // Materiality is about significance, not sentiment: only call out major news.
+        return choice === "major" ? "neutral" : null;
+    }
+    if (choice === positiveChoices[questionName]) return "positive";
+    if (choice === negativeChoices[questionName]) return "negative";
+    return "neutral";
+}
+
+function renderArticleSignals(symbol) {
+    const newsData = newsResults.get(symbol);
+    byId("article-signals").hidden = !newsData;
+    if (!newsData) return;
+    const expanded = expandedArticles.get(symbol) || new Set();
+    byId("signals-label").textContent = `news · ${newsData.articles.length} article${newsData.articles.length === 1 ? "" : "s"}${newsData.aggregate ? "" : " · fetched"}`;
+    const body = byId("article-signals-body");
+    body.replaceChildren();
+    const table = element("table", "signals-table");
+    const thead = element("thead");
+    const headerRow = element("tr");
+    headerRow.append(element("th", "signals-th-rel", "Rel."));
+    headerRow.append(element("th", "signals-th-headline", "Headline"));
+    articleQuestions.forEach(({ name }) => {
+        headerRow.append(element("th", "", labels[name] || name));
+    });
+    thead.append(headerRow);
+    table.append(thead);
+    const tbody = element("tbody");
+    const columnCount = 2 + articleQuestions.length;
+    newsData.articles.forEach((article, index) => {
+        const row = element("tr", "signals-article-row");
+        const relCell = element("td", "signals-rel-cell");
+        const dot = element("span", "relevance-dot");
+        dot.classList.add(article.relevance >= 0.8 ? "rel-high" : article.relevance >= 0.5 ? "rel-mid" : "rel-low");
+        relCell.append(dot, element("span", "relevance-score", article.relevance.toFixed(2)));
+        row.append(relCell);
+        const rawHeadline = article.text.split(":")[0] || article.text;
+        const headline = rawHeadline.length > 55 ? rawHeadline.slice(0, 55) + "…" : rawHeadline;
+        const headlineCell = element("td", "signals-headline");
+        const headlineButton = element("button", "signals-headline-button", headline);
+        headlineButton.type = "button";
+        headlineButton.title = expanded.has(index) ? "Collapse article" : "Show full article";
+        headlineButton.setAttribute("aria-expanded", String(expanded.has(index)));
+        headlineButton.addEventListener("click", () => {
+            const current = expandedArticles.get(symbol) || new Set();
+            if (current.has(index)) current.delete(index); else current.add(index);
+            expandedArticles.set(symbol, current);
+            renderArticleSignals(symbol);
+        });
+        headlineCell.append(headlineButton);
+        row.append(headlineCell);
+        articleQuestions.forEach(({ name }) => {
+            const choice = article.answers?.[name]?.choice;
+            const cell = element("td");
+            const badge = element("span", "screen-choice", choice?.replaceAll("_", " ") || "—");
+            if (choice) {
+                badge.classList.add("assessed");
+                const s = choiceSentiment(name, choice);
+                if (s === "positive") badge.classList.add("positive");
+                else if (s === "negative") badge.classList.add("negative");
+                else if (s === "neutral") badge.classList.add("caution");
+            }
+            cell.append(badge);
+            row.append(cell);
+        });
+        tbody.append(row);
+        if (expanded.has(index)) {
+            const detailRow = element("tr", "signals-detail-row");
+            const detailCell = element("td", "signals-detail-cell", article.text);
+            detailCell.colSpan = columnCount;
+            detailRow.append(detailCell);
+            tbody.append(detailRow);
+        }
+    });
+    if (newsData.aggregate) {
+        const aggRow = element("tr", "signals-aggregate-row");
+        aggRow.append(element("td", ""));
+        aggRow.append(element("td", "signals-aggregate-label", "Weighted aggregate"));
+        articleQuestions.forEach(({ name }) => {
+            const choice = newsData.aggregate.answers?.[name]?.choice;
+            const confidence = newsData.aggregate.answers?.[name]?.answer_confidence;
+            const cell = element("td");
+            const badge = element("span", "screen-choice", choice?.replaceAll("_", " ") || "—");
+            if (choice) {
+                badge.classList.add("assessed");
+                const s = choiceSentiment(name, choice);
+                if (s === "positive") badge.classList.add("positive");
+                else if (s === "negative") badge.classList.add("negative");
+                else if (s === "neutral") badge.classList.add("caution");
+            }
+            cell.append(badge);
+            if (typeof confidence === "number") {
+                cell.append(element("span", "signals-confidence", `${(confidence * 100).toFixed(0)}%`));
+            }
+            aggRow.append(cell);
+        });
+        tbody.append(aggRow);
+    }
+    table.append(tbody);
+    body.append(table);
+}
+
 function renderOverview() {
     byId("overview-count").textContent = companies.length;
     byId("overview-weight").textContent = formatMetric(
@@ -188,7 +287,7 @@ function renderOverview() {
     if (!companies.length) {
         const row = element("tr");
         const cell = element("td", "empty-holdings", "No holdings in this portfolio.");
-        cell.colSpan = 8;
+        cell.colSpan = 6;
         row.append(cell);
         rows.append(row);
     }
@@ -200,8 +299,8 @@ function renderOverview() {
         );
     } else if (sort === "confidence-desc" || sort === "confidence-asc") {
         sortedCompanies.sort((first, second) => {
-            const firstConfidence = answerConfidence(results.get(first.symbol)?.answers.growth_outlook_question);
-            const secondConfidence = answerConfidence(results.get(second.symbol)?.answers.growth_outlook_question);
+            const firstConfidence = answerConfidence(results.get(first.symbol)?.answers.market_reaction_question);
+            const secondConfidence = answerConfidence(results.get(second.symbol)?.answers.market_reaction_question);
             if (firstConfidence === null) return secondConfidence === null ? 0 : 1;
             if (secondConfidence === null) return -1;
             return sort === "confidence-desc"
@@ -227,21 +326,25 @@ function renderOverview() {
         button.addEventListener("click", () => selectCompany(symbol));
         company.append(button);
         row.append(company, element("td", "screen-weight", formatMetric(weight, "fraction")));
-        questions.forEach(({ name }) => {
+        articleQuestions.forEach(({ name }) => {
             const value = result?.answers[name]?.choice;
             const cell = element("td");
             const badge = element("span", "screen-choice", value?.replaceAll("_", " ") || "Not run");
             if (value) {
                 badge.classList.add("assessed");
+                const s = choiceSentiment(name, value);
+                if (s === "positive") badge.classList.add("positive");
+                else if (s === "negative") badge.classList.add("negative");
+                else if (s === "neutral") badge.classList.add("caution");
             }
             cell.append(badge);
             row.append(cell);
-            if (name === "growth_outlook_question") {
+            if (name === "market_reaction_question") {
                 const confidence = answerConfidence(result?.answers[name]);
                 const confidenceCell = element("td", "screen-confidence", confidence === null
                     ? result ? "Unknown" : "Not run"
                     : `${(confidence * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`);
-                confidenceCell.title = "Laya answer_confidence for growth outlook; not a verified probability of correctness.";
+                confidenceCell.title = "Laya answer_confidence for market reaction; not a verified probability of correctness.";
                 row.append(confidenceCell);
             }
         });
@@ -249,7 +352,7 @@ function renderOverview() {
         const status = element("td", "screen-row-status", activeSymbol === symbol
             ? "Analyzing..." : error ? `Failed: ${error}` : result
                 ? analyzedAt.get(symbol).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : validResearch(researchDrafts.get(symbol)) ? "Ready" : "No excerpt");
+                : "Not analyzed");
         status.classList.toggle("screen-failed", Boolean(error));
         row.append(status);
         rows.append(row);
@@ -272,8 +375,7 @@ function showOverview() {
 }
 
 async function screenPortfolio() {
-    const candidates = companies.filter(({ symbol }) => validResearch(researchDrafts.get(symbol)));
-    if (running || loading || !candidates.length) return;
+    if (running || loading || !companies.length) return;
     running = true;
     screening = true;
     stopRequested = false;
@@ -283,20 +385,25 @@ async function screenPortfolio() {
     let failed = 0;
     const statusTimer = setInterval(updateStatus, 1500);
     try {
-        for (const { symbol } of candidates) {
+        for (const { symbol } of companies) {
             if (stopRequested) break;
             activeSymbol = symbol;
             results.delete(symbol);
+            newsResults.delete(symbol);
             screenErrors.delete(symbol);
             renderOverview();
-            byId("screen-status").textContent = `Analyzing ${symbol} / ${completed + 1} of ${candidates.length} excerpts`;
+            byId("screen-status").textContent = `Analyzing ${symbol} / ${completed + 1} of ${companies.length} companies`;
             try {
-                const result = await request(`/api/analyze/${encodeURIComponent(symbol)}`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ research_text: researchDrafts.get(symbol).trim() }),
+                const data = await request(`/api/sentiment-each/${encodeURIComponent(symbol)}`);
+                newsResults.set(symbol, data);
+                results.set(symbol, {
+                    symbol: data.symbol,
+                    snapshot: data.snapshot,
+                    answers: data.aggregate.answers,
+                    validated: true,
+                    raw: data,
+                    timing: data.timing,
                 });
-                results.set(symbol, result);
                 analyzedAt.set(symbol, new Date());
             } catch (error) {
                 screenErrors.set(symbol, error.message);
@@ -314,51 +421,6 @@ async function screenPortfolio() {
         updateControls();
         updateStatus();
     }
-}
-
-function renderDecisions(result) {
-    byId("decisions").replaceChildren();
-    questions.forEach((question, index) => {
-        const answer = result?.answers[question.name];
-        const row = element("details", "decision-row");
-        const summary = element("summary");
-        summary.setAttribute(
-            "aria-label",
-            `${labels[question.name] || question.name}: ${answer?.choice?.replaceAll("_", " ") || "not run"}. Show criteria`,
-        );
-        const title = element("span", "decision-title");
-        title.append(
-            element("span", "decision-number", String(index + 1).padStart(2, "0")),
-            element("span", "", labels[question.name] || question.name),
-        );
-        const choices = element("span", "choices");
-        choices.style.setProperty("--choice-columns", Object.keys(question.criteria).length === 4 ? "2" : "3");
-        Object.keys(question.criteria).forEach((value) => {
-            const choice = element("span", "choice", value.replaceAll("_", " "));
-            if (answer?.choice === value) {
-                choice.classList.add("chosen");
-                choice.setAttribute("aria-label", `${value}, selected result`);
-            }
-            choices.append(choice);
-        });
-        summary.append(title, choices);
-        const explanation = element("div", "decision-explanation");
-        if (answer) {
-            const confidence = answerConfidence(answer);
-            const score = element("p", "", `Answer confidence: ${confidence === null ? "Unknown"
-                : `${(confidence * 100).toFixed(1)}%`}`);
-            score.title = "Laya answer_confidence; not a verified probability of correctness.";
-            explanation.append(score);
-        }
-        explanation.append(element("p", "", question.instructions));
-        const criteria = element("dl");
-        Object.entries(question.criteria).forEach(([value, description]) => {
-            criteria.append(element("dt", "", value.replaceAll("_", " ")), element("dd", "", description));
-        });
-        explanation.append(criteria);
-        row.append(summary, explanation);
-        byId("decisions").append(row);
-    });
 }
 
 function formatMetric(value, unit) {
@@ -393,7 +455,6 @@ function renderSnapshot() {
 
 function renderResult() {
     const result = results.get(selected);
-    renderDecisions(result);
     byId("laya-time").textContent = result
         ? result.timing.laya_ms.toLocaleString(undefined, {
             maximumFractionDigits: 1,
@@ -407,8 +468,8 @@ function renderResult() {
         : "Awaiting run";
     byId("contract-status").classList.toggle("valid", Boolean(result?.validated));
     byId("contract-note").textContent = result
-        ? `${questions.length} of ${questions.length} within allowed values`
-        : `${questions.length} constrained choice fields`;
+        ? `${Object.keys(result.answers).length} of ${Object.keys(result.answers).length} within allowed values`
+        : `${articleQuestions.length} constrained choice fields`;
     byId("run-model-state").textContent = result
         ? result.timing.model_preloaded
             ? "Reused model"
@@ -432,7 +493,6 @@ async function selectCompany(symbol, refresh = false) {
     byId("overview-nav").setAttribute("aria-pressed", "false");
     const version = ++selectionVersion;
     selected = symbol;
-    byId("research-text").value = researchDrafts.get(symbol) || "";
     loading = true;
     snapshot = null;
     if (refresh) {
@@ -443,6 +503,7 @@ async function selectCompany(symbol, refresh = false) {
     renderPortfolio();
     renderSnapshot();
     renderResult();
+    renderArticleSignals(symbol);
     updateControls();
     setActivity("Fetching company fundamentals...");
     try {
@@ -469,18 +530,18 @@ async function selectCompany(symbol, refresh = false) {
     }
 }
 
-async function runAnalysis() {
-    const researchText = byId("research-text").value;
-    if (running || loading || !snapshot || !validResearch(researchText)) return;
+async function analyzeNewsArticles() {
+    if (running || loading || !snapshot || !selected) return;
+    const symbol = selected;
     running = true;
-    results.delete(selected);
-    screenErrors.delete(selected);
+    newsResults.delete(symbol);
+    results.delete(symbol);
+    screenErrors.delete(symbol);
     renderResult();
+    renderArticleSignals(symbol);
     showError();
     updateControls();
-    setActivity(
-        "Running live analysis. The first run may download model weights.",
-    );
+    setActivity("Analyzing news articles...");
     const started = performance.now();
     const timer = setInterval(() => {
         byId("elapsed").textContent =
@@ -488,32 +549,38 @@ async function runAnalysis() {
     }, 100);
     const statusTimer = setInterval(updateStatus, 1500);
     try {
-        const result = await request(
-            `/api/analyze/${encodeURIComponent(selected)}`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ research_text: researchText.trim() }),
-            },
-        );
-        results.set(selected, result);
-        analyzedAt.set(selected, new Date());
-        snapshot = result.snapshot;
+        const data = await request(`/api/sentiment-each/${encodeURIComponent(symbol)}`);
+        newsResults.set(symbol, data);
+        results.set(symbol, {
+            symbol: data.symbol,
+            snapshot: data.snapshot,
+            research_text: `News: ${data.articles.length} articles`,
+            answers: data.aggregate.answers,
+            validated: true,
+            raw: data,
+            timing: data.timing,
+        });
+        analyzedAt.set(symbol, new Date());
+        snapshot = data.snapshot;
         renderSnapshot();
         renderResult();
+        renderArticleSignals(symbol);
         running = false;
-        setActivity(`Analysis complete. All ${questions.length} choices passed validation.`);
+        setActivity(
+            `News analysis complete. ${data.articles.length} article${data.articles.length === 1 ? "" : "s"} · weighted aggregate${data.cached ? " (cached)" : ""}.`,
+        );
     } catch (error) {
         running = false;
-        screenErrors.set(selected, error.message);
+        screenErrors.set(symbol, error.message);
         showError(error.message);
-        setActivity("Analysis failed. Run again to retry.");
+        setActivity("News analysis failed. Retry.");
     } finally {
         clearInterval(timer);
         clearInterval(statusTimer);
         byId("elapsed").textContent = "";
         updateControls();
         updateStatus();
+        renderOverview();
     }
 }
 
@@ -542,46 +609,7 @@ document.querySelectorAll("[role=tab]").forEach((tab, index, tabs) => {
         tabs[next].focus();
     });
 });
-byId("run").addEventListener("click", runAnalysis);
-byId("research-text").addEventListener("input", () => {
-    if (!selected || running) return;
-    researchDrafts.set(selected, byId("research-text").value);
-    results.delete(selected);
-    screenErrors.delete(selected);
-    analyzedAt.delete(selected);
-    renderResult();
-    showError();
-    updateControls();
-    setActivity(validResearch(byId("research-text").value) ? "Excerpt ready. Awaiting analysis." : "Awaiting excerpt.");
-});
-byId("fetch-sentiment").addEventListener("click", async () => {
-    if (!selected || running || loading) return;
-    const symbol = selected;
-    showError();
-    setActivity(`Fetching ${symbol} news sentiment...`);
-    byId("fetch-sentiment").disabled = true;
-    try {
-        const { research_text, cached } = await request(
-            `/api/sentiment/${encodeURIComponent(symbol)}`,
-        );
-        if (selected !== symbol) return;
-        byId("research-text").value = research_text;
-        researchDrafts.set(symbol, research_text);
-        results.delete(symbol);
-        screenErrors.delete(symbol);
-        analyzedAt.delete(symbol);
-        renderResult();
-        setActivity(
-            cached
-                ? "News sentiment loaded from cache (no API call spent). Awaiting analysis."
-                : "News sentiment fetched. Awaiting analysis.",
-        );
-    } catch (error) {
-        if (selected === symbol) showError(error.message);
-    } finally {
-        updateControls();
-    }
-});
+byId("analyze-news").addEventListener("click", analyzeNewsArticles);
 byId("overview-nav").addEventListener("click", showOverview);
 byId("screen-portfolio").addEventListener("click", screenPortfolio);
 byId("screen-sort").addEventListener("change", renderOverview);
@@ -605,11 +633,11 @@ async function initialize() {
     try {
         const portfolio = await request("/api/portfolio");
         companies = portfolio.companies;
-        questions = portfolio.questions;
-        byId("question-count").textContent = questions.length;
-        byId("decision-total").textContent = questions.length;
+        articleQuestions = portfolio.article_questions || [];
+        byId("question-count").textContent = articleQuestions.length;
+        byId("decision-total").textContent = articleQuestions.length;
         const properties = Object.fromEntries(
-            questions.map((question) => [
+            articleQuestions.map((question) => [
                 question.name,
                 {
                     type: "object",
@@ -625,7 +653,7 @@ async function initialize() {
         byId("schema-json").textContent = JSON.stringify(
             {
                 type: "object",
-                required: questions.map((question) => question.name),
+                required: articleQuestions.map((question) => question.name),
                 properties,
                 additionalProperties: false,
             },
@@ -633,7 +661,7 @@ async function initialize() {
             2,
         );
         showOverview();
-        byId("screen-status").textContent = companies.length ? "Awaiting excerpts." : "The portfolio is empty.";
+        byId("screen-status").textContent = companies.length ? "Awaiting news analysis." : "The portfolio is empty.";
         if (companies.length) await selectCompany(companies[0].symbol);
     } catch (error) {
         showError(`${error.message} Reload the page to retry.`);

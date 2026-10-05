@@ -29,8 +29,12 @@ def client(monkeypatch):
 
 
 def test_portfolio_and_snapshot(client):
-    assert [question["name"] for question in client.get("/api/portfolio").json()["questions"]] == [
+    portfolio = client.get("/api/portfolio").json()
+    assert [question["name"] for question in portfolio["questions"]] == [
         "growth_outlook_question", "profitability_outlook_question",
+    ]
+    assert [question["name"] for question in portfolio["article_questions"]] == [
+        "market_reaction_question", "materiality_question",
     ]
     snapshot = client.get("/api/companies/NVDA").json()
     assert snapshot["state"]["revenue_growth"] == 0.55
@@ -194,13 +198,13 @@ def test_transcript_endpoint_reports_fetch_failure(client, monkeypatch):
 
 
 def test_sentiment_endpoint(client, monkeypatch):
-    fetch = Mock(return_value="NVIDIA beats estimates: Revenue grew 20% YoY.")
-    monkeypatch.setattr(web, "obtain_news_sentiment", fetch)
+    fetch = Mock(return_value=[{"text": "NVIDIA beats estimates: Revenue grew 20% YoY.", "relevance": 0.9}])
+    monkeypatch.setattr(web, "obtain_top_articles_with_relevance", fetch)
     monkeypatch.setattr(web, "sentiment_is_cached", Mock(return_value=False))
     response = client.get("/api/sentiment/NVDA")
     assert response.status_code == 200
     assert response.json() == {
-        "research_text": "NVIDIA beats estimates: Revenue grew 20% YoY.",
+        "articles": [{"text": "NVIDIA beats estimates: Revenue grew 20% YoY.", "relevance": 0.9}],
         "cached": False,
     }
     fetch.assert_called_once_with("NVDA", limit=3)
@@ -208,14 +212,70 @@ def test_sentiment_endpoint(client, monkeypatch):
 
 
 def test_sentiment_endpoint_reports_whether_cached(client, monkeypatch):
-    monkeypatch.setattr(web, "obtain_news_sentiment", Mock(return_value="cached text"))
+    monkeypatch.setattr(web, "obtain_top_articles_with_relevance", Mock(return_value=[]))
     monkeypatch.setattr(web, "sentiment_is_cached", Mock(return_value=True))
     response = client.get("/api/sentiment/NVDA")
     assert response.json()["cached"] is True
 
 
 def test_sentiment_endpoint_reports_fetch_failure(client, monkeypatch):
-    monkeypatch.setattr(web, "obtain_news_sentiment", Mock(side_effect=web.SentimentError("no news")))
+    monkeypatch.setattr(web, "obtain_top_articles_with_relevance", Mock(side_effect=web.SentimentError("no news")))
     response = client.get("/api/sentiment/NVDA")
     assert response.status_code == 502
     assert "no news" in response.json()["detail"]
+
+
+def test_sentiment_each_classifies_and_aggregates(client, monkeypatch):
+    articles = [
+        {"text": "Article A", "relevance": 0.9},
+        {"text": "Article B", "relevance": 0.1},
+    ]
+    monkeypatch.setattr(web, "obtain_top_articles_with_relevance", Mock(return_value=articles))
+    monkeypatch.setattr(web, "sentiment_is_cached", Mock(return_value=False))
+    decision_each = Mock(return_value=[
+        {"answers": {
+            "market_reaction_question": {"type": "choice", "choice": "bullish"},
+            "materiality_question": {"type": "choice", "choice": "major"},
+        }},
+        {"answers": {
+            "market_reaction_question": {"type": "choice", "choice": "bearish"},
+            "materiality_question": {"type": "choice", "choice": "minor"},
+        }},
+    ])
+    monkeypatch.setattr(web, "decision_each", decision_each)
+
+    response = client.get("/api/sentiment-each/NVDA")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["articles"]) == 2
+    assert body["articles"][0]["answers"]["market_reaction_question"]["choice"] == "bullish"
+    # Weighted vote: 0.9 bullish vs 0.1 bearish -> bullish wins with ~90% confidence.
+    assert body["aggregate"]["answers"]["market_reaction_question"]["choice"] == "bullish"
+    assert body["aggregate"]["answers"]["market_reaction_question"]["answer_confidence"] == pytest.approx(0.9)
+    assert body["aggregate"]["answers"]["materiality_question"]["choice"] == "major"
+
+
+def test_sentiment_each_reports_fetch_failure(client, monkeypatch):
+    monkeypatch.setattr(web, "obtain_top_articles_with_relevance", Mock(side_effect=web.SentimentError("no news")))
+    response = client.get("/api/sentiment-each/NVDA")
+    assert response.status_code == 502
+    assert "no news" in response.json()["detail"]
+
+
+def test_sentiment_each_requires_at_least_one_article(client, monkeypatch):
+    monkeypatch.setattr(web, "obtain_top_articles_with_relevance", Mock(return_value=[]))
+    response = client.get("/api/sentiment-each/NVDA")
+    assert response.status_code == 502
+
+
+def test_sentiment_each_rejects_concurrent_runs(client, monkeypatch):
+    monkeypatch.setattr(
+        web, "obtain_top_articles_with_relevance", Mock(return_value=[{"text": "A", "relevance": 1.0}]),
+    )
+    monkeypatch.setattr(web, "decision_each", Mock(return_value=[{"answers": {
+        "market_reaction_question": {"type": "choice", "choice": "bullish"},
+        "materiality_question": {"type": "choice", "choice": "major"},
+    }}]))
+    with web.analysis_lock:
+        assert client.get("/api/sentiment-each/NVDA").status_code == 409

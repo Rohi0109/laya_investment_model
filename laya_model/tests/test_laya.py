@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from investment_question.investment_questions import (
     return_all_questions,
+    return_article_questions,
     return_research_questions,
 )
 from laya_model.laya_model import aggregate_decisions, decision, decision_each, decision_long
@@ -73,6 +74,20 @@ def test_research_questions():
     assert [set(question.criteria) for question in questions] == [
         {"improving", "stable", "deteriorating", "not_discussed"},
         {"expanding", "stable", "compressing", "not_discussed"},
+    ]
+
+
+def test_article_questions():
+    # Separate from return_research_questions(): tuned for a single short news article
+    # rather than a long excerpt or full transcript.
+    questions = return_article_questions()
+    assert [question.name for question in questions] == [
+        "market_reaction_question", "materiality_question",
+    ]
+    assert all(isinstance(question, ChoiceQuestion) for question in questions)
+    assert [set(question.criteria) for question in questions] == [
+        {"bullish", "bearish", "neutral", "not_discussed"},
+        {"major", "minor", "routine", "unclear"},
     ]
 
 
