@@ -139,12 +139,6 @@ function renderPortfolio() {
     byId("company-select").value = selected;
 }
 
-function answerConfidence(answer) {
-    const value = answer?.answer_confidence;
-    return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1
-        ? value : null;
-}
-
 const positiveChoices = {
     market_reaction_question: "bullish",
 };
@@ -318,7 +312,7 @@ function renderOverview() {
     if (!companies.length) {
         const row = element("tr");
         const cell = element("td", "empty-holdings", "No holdings in this portfolio.");
-        cell.colSpan = 6;
+        cell.colSpan = 5;
         row.append(cell);
         rows.append(row);
     }
@@ -328,15 +322,6 @@ function renderOverview() {
         sortedCompanies.sort((first, second) =>
             sort === "weight-desc" ? second.weight - first.weight : first.weight - second.weight,
         );
-    } else if (sort === "confidence-desc" || sort === "confidence-asc") {
-        sortedCompanies.sort((first, second) => {
-            const firstConfidence = answerConfidence(results.get(first.symbol)?.answers.market_reaction_question);
-            const secondConfidence = answerConfidence(results.get(second.symbol)?.answers.market_reaction_question);
-            if (firstConfidence === null) return secondConfidence === null ? 0 : 1;
-            if (secondConfidence === null) return -1;
-            return sort === "confidence-desc"
-                ? secondConfidence - firstConfidence : firstConfidence - secondConfidence;
-        });
     }
     sortedCompanies.forEach(({ symbol, weight }) => {
         const result = results.get(symbol);
@@ -372,14 +357,6 @@ function renderOverview() {
             }
             cell.append(badge);
             row.append(cell);
-            if (name === "market_reaction_question") {
-                const confidence = answerConfidence(result?.answers[name]);
-                const confidenceCell = element("td", "screen-confidence", confidence === null
-                    ? result ? "Unknown" : "Not run"
-                    : `${(confidence * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`);
-                confidenceCell.title = "Laya answer_confidence for market reaction; not a verified probability of correctness.";
-                row.append(confidenceCell);
-            }
         });
         const error = screenErrors.get(symbol);
         const status = element("td", "screen-row-status", activeSymbol === symbol

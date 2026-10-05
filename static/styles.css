@@ -243,11 +243,6 @@ button svg {
     background: var(--paper);
 }
 
-.screen-confidence {
-    font: 14px var(--mono);
-    color: var(--muted);
-}
-
 .screen-table {
     width: 100%;
     min-width: 640px;
@@ -1171,12 +1166,6 @@ h2 {
     color: var(--ink);
     white-space: normal;
     overflow-wrap: anywhere;
-}
-
-.signals-confidence {
-    font: 10px var(--mono);
-    color: var(--muted);
-    margin-left: 6px;
 }
 
 .signal-dots {
