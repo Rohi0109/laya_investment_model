@@ -226,8 +226,12 @@ def test_sentiment_endpoint_reports_fetch_failure(client, monkeypatch):
 
 
 def test_sentiment_each_classifies_and_aggregates(client, monkeypatch):
+    provenance = {
+        "title": "NVIDIA: Quarterly results", "source": "Example News",
+        "url": "https://example.com/results", "time_published": "20261005T130000",
+    }
     articles = [
-        {"text": "Article A", "relevance": 0.9},
+        {"text": "Article A", "relevance": 0.9, **provenance},
         {"text": "Article B", "relevance": 0.1},
     ]
     monkeypatch.setattr(web, "obtain_top_articles_with_relevance", Mock(return_value=articles))
@@ -249,6 +253,10 @@ def test_sentiment_each_classifies_and_aggregates(client, monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert len(body["articles"]) == 2
+    assert {field: body["articles"][0][field] for field in provenance} == provenance
+    assert "source" not in body["articles"][1]
+    assert '"research_text":"Article A"' in decision_each.call_args.args[0][0]
+    assert "Example News" not in decision_each.call_args.args[0][0]
     assert body["articles"][0]["answers"]["market_reaction_question"]["choice"] == "bullish"
     # Weighted vote: 0.9 bullish vs 0.1 bearish -> bullish wins with ~90% confidence.
     assert body["aggregate"]["answers"]["market_reaction_question"]["choice"] == "bullish"

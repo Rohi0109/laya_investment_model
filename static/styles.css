@@ -114,7 +114,7 @@ button svg {
 }
 
 .app-name {
-    font: 12px var(--mono);
+    font: 14px var(--mono);
     color: var(--rail-muted);
 }
 
@@ -154,7 +154,7 @@ button svg {
 }
 
 .sidebar-heading h2 {
-    font: 12px var(--mono);
+    font: 14px var(--mono);
     font-weight: 600;
     margin: 0;
 }
@@ -200,7 +200,7 @@ button svg {
 
 .portfolio-totals dt {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .portfolio-totals dd {
@@ -211,7 +211,7 @@ button svg {
 .screen-status {
     min-height: 38px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 14px;
     padding-bottom: 14px;
 }
 
@@ -228,7 +228,7 @@ button svg {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 12px;
+    font-size: 14px;
     color: var(--muted);
     max-width: 100%;
 }
@@ -244,7 +244,7 @@ button svg {
 }
 
 .screen-confidence {
-    font: 12px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
 }
 
@@ -259,7 +259,7 @@ button svg {
 
 .screen-table th {
     padding: 14px 10px;
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     text-transform: uppercase;
     color: var(--muted);
     border-block: 1px solid var(--line);
@@ -322,12 +322,12 @@ button svg {
 }
 
 .screen-company-name>span {
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
 }
 
 .screen-weight {
-    font: 12px var(--mono);
+    font: 14px var(--mono);
 }
 
 .screen-weight::after {
@@ -339,7 +339,7 @@ button svg {
 }
 
 .screen-choice {
-    font: 13px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
     text-transform: capitalize;
 }
@@ -408,7 +408,7 @@ button svg {
 }
 
 .screen-row-status {
-    font: 12px var(--mono);
+    font: 14px var(--mono);
 }
 
 .empty-holdings {
@@ -435,7 +435,7 @@ button svg {
 }
 
 .count {
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     border: 1px solid #53604c;
     padding: 2px 6px;
     border-radius: 4px;
@@ -446,7 +446,7 @@ button svg {
     justify-content: space-between;
     padding: 0 12px;
     margin-bottom: 12px;
-    font: 10px var(--mono);
+    font: 14px var(--mono);
     text-transform: uppercase;
     color: var(--rail-muted);
 }
@@ -493,12 +493,12 @@ button svg {
 
 .holding-name {
     font-weight: 600;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 .holding-weight {
     margin-left: auto;
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     color: var(--rail-muted);
 }
 
@@ -509,7 +509,7 @@ button svg {
     flex-direction: column;
     gap: 10px;
     color: var(--rail-muted);
-    font-size: 11px;
+    font-size: 14px;
     line-height: 1.7;
 }
 
@@ -541,7 +541,7 @@ main {
 }
 
 .breadcrumb {
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
     margin-bottom: 28px;
 }
@@ -589,7 +589,7 @@ main {
 .company-meta {
     display: flex;
     gap: 10px;
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
     flex-wrap: wrap;
 }
@@ -692,7 +692,7 @@ h1 {
 }
 
 .eyebrow {
-    font: 10px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
 }
 
@@ -717,7 +717,7 @@ h1 {
 
 .metric-note {
     color: var(--muted);
-    font-size: 11px;
+    font-size: 14px;
 }
 
 .contract-status {
@@ -748,7 +748,7 @@ h2 {
 }
 
 .code-label {
-    font: 10px var(--mono);
+    font: 14px var(--mono);
     color: var(--green);
     background: var(--green-light);
     padding: 4px 7px;
@@ -876,7 +876,7 @@ h2 {
 }
 
 .source-label {
-    font: 9px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
 }
 
@@ -893,12 +893,12 @@ h2 {
     justify-content: space-between;
     gap: 10px;
     border-bottom: 1px solid #edf0ee;
-    font-size: 12px;
+    font-size: 14px;
     color: var(--muted);
 }
 
 .fundamental strong {
-    font: 12px var(--mono);
+    font: 14px var(--mono);
     color: var(--ink);
     white-space: nowrap;
 }
@@ -909,7 +909,7 @@ h2 {
     gap: 8px 22px;
     padding: 12px 0;
     border-top: 1px solid var(--line);
-    font: 9px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
 }
 
@@ -948,7 +948,7 @@ h2 {
 }
 
 .summary-findings dt {
-    font-size: 13px;
+    font-size: 14px;
     color: var(--muted);
 }
 
@@ -967,7 +967,7 @@ h2 {
     flex-wrap: wrap;
     gap: 8px 24px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 14px;
 }
 
 .diagnostics {
@@ -977,7 +977,7 @@ h2 {
 .diagnostics>summary {
     cursor: pointer;
     padding: 16px 0;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
 }
 
@@ -1004,7 +1004,7 @@ h2 {
 
 .signals-table th {
     padding: 8px 10px;
-    font: 11px var(--mono);
+    font: 14px var(--mono);
     text-transform: uppercase;
     color: var(--muted);
     border-bottom: 1px solid var(--line);
@@ -1014,7 +1014,7 @@ h2 {
 }
 
 .signals-th-rel {
-    width: 90px;
+    width: 110px;
 }
 
 .signals-th-headline {
@@ -1071,23 +1071,21 @@ h2 {
 }
 
 .relevance-score {
-    font: 10px var(--mono);
+    font: 14px var(--mono);
     color: var(--muted);
 }
 
 .signals-headline {
-    font-size: 14px;
+    font-size: 16px;
     color: var(--ink);
     max-width: 0;
 }
 
 .signals-headline-button {
-    display: -webkit-box;
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
-    overflow: hidden;
-    line-clamp: 2;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
     white-space: normal;
     overflow-wrap: anywhere;
     min-height: 44px;
@@ -1102,6 +1100,63 @@ h2 {
     cursor: pointer;
 }
 
+.headline-text {
+    display: -webkit-box;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.signals-headline-button .article-chevron {
+    width: 20px;
+    height: 20px;
+    color: var(--green);
+}
+
+.signals-headline-button[aria-expanded="true"] .article-chevron {
+    transform: rotate(180deg);
+}
+
+.signals-headline-button[aria-expanded="true"] .headline-text {
+    line-clamp: unset;
+    -webkit-line-clamp: unset;
+}
+
+.article-copy {
+    max-width: 70ch;
+    white-space: pre-line;
+}
+
+.article-source {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 16px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.article-source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    max-width: 100%;
+    color: var(--green);
+    text-underline-offset: 3px;
+}
+
+.article-source-link svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
 .signals-headline-button:hover,
 .signals-headline-button:focus-visible {
     color: var(--green);
@@ -1111,7 +1166,7 @@ h2 {
 .signals-detail-row td {
     background: #edf2e7;
     padding: 18px;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.6;
     color: var(--ink);
     white-space: normal;
@@ -1148,21 +1203,6 @@ h2 {
 
 .signal-dot.signal-negative {
     background: #ac5140;
-}
-
-.page-footer {
-    margin-top: 33px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line);
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    font: 9px var(--mono);
-    color: var(--muted);
-}
-
-.page-footer span:last-child {
-    font: 10px var(--sans);
 }
 
 #overview-view>.company-header,
@@ -1358,7 +1398,7 @@ h2 {
     }
 
     .company-meta {
-        font-size: 10px;
+        font-size: 14px;
     }
 
     .summary-findings {
@@ -1434,11 +1474,6 @@ h2 {
         margin-top: 28px;
     }
 
-    .page-footer {
-        flex-direction: column;
-        gap: 9px;
-    }
-
     .fundamentals {
         gap: 0 18px;
     }
@@ -1499,7 +1534,7 @@ h2 {
         max-width: none;
     }
 
-    .signals-headline-button {
+    .headline-text {
         line-clamp: 3;
         -webkit-line-clamp: 3;
     }
@@ -1564,6 +1599,6 @@ h2 {
     }
 
     .company-meta {
-        font-size: 9px;
+        font-size: 14px;
     }
 }

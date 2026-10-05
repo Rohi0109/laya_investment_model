@@ -42,7 +42,9 @@ def _relevance(article: dict, symbol: str) -> float:
 def _fetch_ranked_articles(symbol: str, limit: int) -> list[dict]:
     """Fetch, rank, and cache the top `limit` articles for `symbol`.
 
-    Each entry is {"text": "title: summary", "relevance": float}. Shared by
+    Entries contain text, relevance, and available provider provenance. Existing
+    text-only cache entries remain readable without triggering new API requests.
+    Shared by
     obtain_news_sentiment, obtain_top_articles, and obtain_top_articles_with_relevance,
     so all three read/write the same cache entry for a given symbol/limit pair.
     """
@@ -80,6 +82,11 @@ def _fetch_ranked_articles(symbol: str, limit: int) -> list[dict]:
         {
             "text": f"{article.get('title', 'Untitled')}: {article.get('summary', '')}".strip(),
             "relevance": _relevance(article, symbol),
+            **{
+                field: article[field].strip()
+                for field in ("title", "source", "url", "time_published")
+                if isinstance(article.get(field), str) and article[field].strip()
+            },
         }
         for article in ranked[:limit]
     ]

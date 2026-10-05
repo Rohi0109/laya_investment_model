@@ -175,6 +175,42 @@ function choiceSentiment(questionName, choice) {
     return null;
 }
 
+function renderArticleSource(article) {
+    const metadata = element("div", "article-source");
+    const source = typeof article.source === "string" ? article.source.trim() : "";
+    const url = typeof article.url === "string" && URL.canParse(article.url)
+        ? new URL(article.url) : null;
+    if (url && ["http:", "https:"].includes(url.protocol) && !url.username && !url.password) {
+        const link = element("a", "article-source-link", source || "Read article");
+        link.href = url.href;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.setAttribute("aria-label", `${source ? `Read article on ${source}` : "Read article"} (opens in new tab)`);
+        link.title = "Read article (opens in new tab)";
+        const icon = element("i");
+        icon.dataset.lucide = "external-link";
+        icon.setAttribute("aria-hidden", "true");
+        link.append(icon);
+        metadata.append(link);
+    } else {
+        metadata.append(element("span", "", source || "Source unavailable"));
+    }
+    const published = typeof article.time_published === "string"
+        ? article.time_published.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/) : null;
+    if (published) {
+        const iso = `${published[1]}-${published[2]}-${published[3]}T${published[4]}:${published[5]}:${published[6]}.000Z`;
+        const date = new Date(iso);
+        if (Number.isFinite(date.getTime()) && date.toISOString() === iso) {
+            const time = element("time", "", date.toLocaleDateString("en-US", {
+                month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
+            }));
+            time.dateTime = iso.slice(0, 10);
+            metadata.append(time);
+        }
+    }
+    return metadata;
+}
+
 function renderArticleSignals(symbol) {
     const newsData = newsResults.get(symbol);
     byId("article-signals").hidden = !newsData;
@@ -213,19 +249,26 @@ function renderArticleSignals(symbol) {
         relevanceLabel.setAttribute("aria-hidden", "true");
         relCell.append(relevanceLabel, dot, element("span", "relevance-score", article.relevance.toFixed(2)));
         row.append(relCell);
-        const rawHeadline = article.text.split(":")[0] || article.text;
+        const rawHeadline = typeof article.title === "string" && article.title.trim()
+            ? article.title : article.text.split(":")[0] || article.text;
         const headlineCell = element("td", "signals-headline");
-        const headlineButton = element("button", "signals-headline-button", rawHeadline);
+        const headlineButton = element("button", "signals-headline-button");
+        const chevron = element("i", "article-chevron");
+        chevron.dataset.lucide = "chevron-down";
+        chevron.setAttribute("aria-hidden", "true");
+        headlineButton.append(element("span", "headline-text", rawHeadline), chevron);
         headlineButton.type = "button";
-        headlineButton.title = expanded.has(index) ? "Collapse article" : "Show full article";
+        headlineButton.title = expanded.has(index) ? "Collapse summary" : "Show article summary";
         headlineButton.setAttribute("aria-expanded", String(expanded.has(index)));
+        headlineButton.setAttribute("aria-controls", `article-detail-${symbol}-${index}`);
         headlineButton.addEventListener("click", () => {
             const current = expandedArticles.get(symbol) || new Set();
             if (current.has(index)) current.delete(index); else current.add(index);
             expandedArticles.set(symbol, current);
             renderArticleSignals(symbol);
+            body.querySelectorAll(".signals-headline-button")[index].focus({ preventScroll: true });
         });
-        headlineCell.append(headlineButton);
+        headlineCell.append(headlineButton, renderArticleSource(article));
         row.append(headlineCell);
         articleQuestions.forEach(({ name }) => {
             const choice = article.answers?.[name]?.choice;
@@ -246,10 +289,13 @@ function renderArticleSignals(symbol) {
         });
         row.querySelectorAll("td").forEach((cell) => cell.setAttribute("role", "cell"));
         tbody.append(row);
-        if (expanded.has(index)) {
+        {
             const detailRow = element("tr", "signals-detail-row");
+            detailRow.id = `article-detail-${symbol}-${index}`;
+            detailRow.hidden = !expanded.has(index);
             detailRow.setAttribute("role", "row");
-            const detailCell = element("td", "signals-detail-cell", article.text);
+            const detailCell = element("td", "signals-detail-cell");
+            detailCell.append(element("div", "article-copy", article.text));
             detailCell.setAttribute("role", "cell");
             detailCell.colSpan = columnCount;
             detailRow.append(detailCell);
@@ -258,6 +304,7 @@ function renderArticleSignals(symbol) {
     });
     table.append(tbody);
     body.append(table);
+    window.lucide?.createIcons({ root: body });
 }
 
 function renderOverview() {
