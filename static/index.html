@@ -5,24 +5,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f7f8fa" />
-    <title>Laya / Transcript Research</title>
+    <title>Laya / Portfolio Intelligence</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap"
         rel="stylesheet" />
-    <link rel="stylesheet" href="/static/styles.css?v=news-signals3" />
+    <link rel="stylesheet" href="/static/styles.css?v=portfolio-demo4" />
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
-    <script src="/static/app.js?v=news-signals3" defer></script>
+    <script src="/static/app.js?v=portfolio-demo4" defer></script>
 </head>
 
 <body>
     <header class="topbar">
         <a class="brand" href="/" aria-label="Laya home"><span class="brand-mark">l.</span> laya<span
-                class="brand-divider">/</span><span class="app-name">Transcript Research</span></a>
-        <div class="connection">
-            <span class="status-dot" id="model-dot"></span><span id="model-status">Model not loaded</span>
-        </div>
+                class="brand-divider">/</span><span class="app-name">Portfolio Intelligence</span></a>
     </header>
     <div class="workspace">
         <aside class="sidebar" aria-label="Portfolio">
@@ -40,10 +37,9 @@
             <label class="mobile-picker" for="company-select">Company<select id="company-select"></select></label>
             <div class="sidebar-footer">
                 <span class="eyebrow">RESEARCH ENGINE</span><strong>Laya</strong><span><span
-                        id="question-count">4</span> questions. One model
-                    call.</span>
+                        id="question-count">2</span> signals per article.</span>
                 <div class="engine-rule"></div>
-                <span>Transcript research<br />Constrained choice outputs</span>
+                <span>Portfolio news research</span>
             </div>
         </aside>
         <main>
@@ -101,7 +97,7 @@
                                 <th scope="col"
                                     title="Laya answer_confidence for market reaction; not a verified probability of correctness.">
                                     Confidence</th>
-                                <th scope="col">Materiality</th>
+                                <th scope="col">Significance</th>
                                 <th scope="col">Last analysis</th>
                             </tr>
                         </thead>
@@ -140,16 +136,28 @@
                     <span class="activity-dot" id="activity-dot"></span><span id="activity-text">Loading
                         portfolio...</span><span id="elapsed"></span>
                 </div>
+                <section class="research-summary" id="research-summary" aria-labelledby="summary-heading" hidden>
+                    <div class="section-heading">
+                        <h2 id="summary-heading">News outlook</h2>
+                    </div>
+                    <dl class="summary-findings" id="summary-findings"></dl>
+                    <div class="summary-meta">
+                        <span id="summary-method"></span>
+                    </div>
+                </section>
                 <section class="article-signals" id="article-signals" aria-labelledby="signals-heading" hidden>
                     <div class="section-heading">
-                        <h2 id="signals-heading">News</h2>
-                        <span class="code-label" id="signals-label">news · 3 articles</span>
+                        <h2 id="signals-heading">Supporting news</h2>
+                        <span class="code-label" id="signals-label"></span>
                     </div>
-                    <div id="article-signals-body"></div>
+                    <div id="article-signals-body" class="article-table-scroll" role="region"
+                        aria-label="News articles" tabindex="0"></div>
                 </section>
+                <details class="diagnostics">
+                    <summary>Run diagnostics</summary>
                 <section class="metrics" aria-label="Analysis measurements">
                     <div class="metric primary-metric">
-                        <span class="eyebrow">LAYA CALL</span>
+                        <span class="eyebrow" id="inference-label">INFERENCE TIME</span>
                         <div class="metric-value">
                             <span id="laya-time">--</span><span class="unit">ms</span>
                         </div>
@@ -161,19 +169,15 @@
                             <span id="decision-count">0</span><span class="unit">/ <span
                                     id="decision-total">4</span></span>
                         </div>
-                        <span class="metric-note">Single request</span>
+                        <span class="metric-note">Aggregate fields</span>
                     </div>
                     <div class="metric">
                         <span class="eyebrow">OUTPUT CONTRACT</span>
                         <div class="contract-status" id="contract-status">Awaiting run</div>
                         <span class="metric-note" id="contract-note">4 constrained choice fields</span>
                     </div>
-                    <div class="metric">
-                        <span class="eyebrow">MODEL STATE</span>
-                        <div class="contract-status" id="run-model-state">Not run</div>
-                        <span class="metric-note" id="setup-note">Setup timed separately</span>
-                    </div>
                 </section>
+                </details>
                 <section class="inspector" aria-label="Analysis details">
                     <div class="inspector-header">
                         <div class="tabs" role="tablist" aria-label="Inspect analysis">

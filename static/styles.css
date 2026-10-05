@@ -106,16 +106,6 @@ button svg {
     font-weight: 450;
 }
 
-.connection {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    color: var(--muted);
-    font-family: var(--mono);
-    font-size: 11px;
-}
-
-.status-dot,
 .activity-dot {
     width: 7px;
     height: 7px;
@@ -124,11 +114,6 @@ button svg {
     flex-shrink: 0;
 }
 
-.status-dot.ready {
-    background: var(--green);
-}
-
-.status-dot.loading,
 .activity-dot.running {
     background: #bd801c;
     animation: pulse 1.1s infinite;
@@ -236,6 +221,7 @@ button svg {
 
 .screen-sort select {
     min-width: 0;
+    max-width: 100%;
     padding: 8px 10px;
     border: 1px solid #d5ded8;
     border-radius: 4px;
@@ -244,13 +230,13 @@ button svg {
 }
 
 .screen-confidence {
-    font: 11px var(--mono);
+    font: 12px var(--mono);
     color: var(--muted);
 }
 
 .screen-table {
     width: 100%;
-    min-width: 1000px;
+    min-width: 640px;
     border-collapse: collapse;
     text-align: left;
     table-layout: fixed;
@@ -258,7 +244,7 @@ button svg {
 
 .screen-table th {
     padding: 14px 10px;
-    font: 10px var(--mono);
+    font: 11px var(--mono);
     text-transform: uppercase;
     color: var(--muted);
     border-block: 1px solid var(--line);
@@ -327,12 +313,12 @@ button svg {
 }
 
 .screen-choice {
-    font: 11px var(--mono);
+    font: 13px var(--mono);
     color: var(--muted);
     text-transform: capitalize;
 }
 
-.screen-choice.positive {
+.screen-choice.assessed.positive {
     color: #137445;
 }
 
@@ -395,7 +381,7 @@ button svg {
 }
 
 .screen-row-status {
-    font: 10px var(--mono);
+    font: 12px var(--mono);
 }
 
 .empty-holdings {
@@ -636,7 +622,7 @@ h1 {
     align-items: center;
     gap: 8px;
     min-height: 53px;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--muted);
     flex-wrap: wrap;
 }
@@ -659,7 +645,7 @@ h1 {
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
     display: grid;
-    grid-template-columns: 1.05fr 0.85fr 1.2fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     background: linear-gradient(110deg, #f1f8f3 0%, #fafbfc 43%);
     padding: 23px 0;
     margin-bottom: 33px;
@@ -941,14 +927,74 @@ pre {
     margin-bottom: 33px;
 }
 
+.research-summary {
+    margin: 8px 0 32px;
+    padding: 24px 0;
+    border-block: 1px solid var(--line);
+}
+
+.research-summary .section-heading {
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.summary-findings {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin: 24px 0;
+}
+
+.summary-findings dt {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.summary-findings dd {
+    margin: 8px 0 0;
+    font-size: 26px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.summary-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.diagnostics {
+    border-block: 1px solid var(--line);
+}
+
+.diagnostics>summary {
+    cursor: pointer;
+    padding: 16px 0;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.diagnostics .metrics {
+    margin: 0;
+    border-bottom: 0;
+}
+
+.article-table-scroll {
+    overflow-x: auto;
+}
+
 .signals-table {
     width: 100%;
+    min-width: 440px;
+    table-layout: fixed;
     border-collapse: collapse;
 }
 
 .signals-table th {
     padding: 8px 10px;
-    font: 10px var(--mono);
+    font: 11px var(--mono);
     text-transform: uppercase;
     color: var(--muted);
     border-bottom: 1px solid var(--line);
@@ -957,11 +1003,11 @@ pre {
 }
 
 .signals-th-rel {
-    width: 60px;
+    width: 90px;
 }
 
 .signals-th-headline {
-    width: 36%;
+    width: 46%;
 }
 
 .signals-table td {
@@ -1019,22 +1065,27 @@ pre {
 }
 
 .signals-headline {
-    font-size: 12px;
+    font-size: 14px;
     color: var(--ink);
     max-width: 0;
 }
 
 .signals-headline-button {
-    display: block;
+    display: -webkit-box;
     width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-height: 44px;
     background: none;
     border: none;
     padding: 0;
     margin: 0;
     font: inherit;
+    line-height: 1.5;
     color: inherit;
     text-align: left;
     cursor: pointer;
@@ -1049,10 +1100,11 @@ pre {
 .signals-detail-row td {
     background: #f7f9f8;
     padding: 12px 14px;
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.6;
     color: var(--ink);
     white-space: normal;
+    overflow-wrap: anywhere;
 }
 
 .signals-confidence {
@@ -1170,7 +1222,11 @@ pre {
 @media (max-width: 800px) {
     .topbar {
         padding: 0 20px;
-        height: 65px;
+        min-height: 65px;
+        height: auto;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        padding-block: 14px;
     }
 
     .transcript-fetch {
@@ -1192,11 +1248,6 @@ pre {
 
     .app-name {
         font-size: 12px;
-    }
-
-    .connection {
-        font-size: 9px;
-        max-width: 115px;
     }
 
     .workspace {
@@ -1233,6 +1284,7 @@ pre {
         color: var(--ink);
         border-radius: 4px;
         width: min(280px, 75%);
+        min-width: 0;
     }
 
     main {
@@ -1245,10 +1297,13 @@ pre {
 
     .company-header {
         align-items: flex-start;
+        flex-wrap: wrap;
     }
 
     .company-identity {
         gap: 12px;
+        min-width: 0;
+        flex: 1;
     }
 
     .company-actions {
@@ -1266,10 +1321,24 @@ pre {
 
     h1 {
         font-size: 23px;
+        overflow-wrap: anywhere;
     }
 
     .company-meta {
         font-size: 10px;
+    }
+
+    .summary-findings {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .summary-findings>div:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .summary-findings dd {
+        font-size: 22px;
     }
 
     .metrics {
@@ -1289,6 +1358,7 @@ pre {
 
     .metric:nth-child(n + 3) {
         border-top: 1px solid var(--line);
+        grid-column: 1 / -1;
     }
 
     .metric-value {
@@ -1328,11 +1398,12 @@ pre {
     }
 
     .tabs {
-        gap: 20px;
+        gap: 16px;
+        flex-wrap: wrap;
     }
 
     .tabs button {
-        font-size: 11px;
+        font-size: 12px;
     }
 
     .page-footer {

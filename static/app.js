@@ -17,7 +17,7 @@ const names = {
 };
 const labels = {
     market_reaction_question: "Market reaction",
-    materiality_question: "Materiality",
+    materiality_question: "Significance",
 };
 const metrics = [
     ["forward_pe", "Forward P/E", "ratio"],
@@ -104,22 +104,6 @@ function updateControls() {
     byId("stop-screen").disabled = stopRequested;
 }
 
-async function updateStatus() {
-    try {
-        const status = await request("/api/status");
-        byId("model-status").textContent = {
-            ready: "Model loaded",
-            loading: "Loading model...",
-            not_loaded: "Model not loaded",
-        }[status.model_status];
-        byId("model-dot").className =
-            `status-dot ${status.model_status === "ready" ? "ready" : status.model_status === "loading" ? "loading" : ""}`;
-    } catch {
-        byId("model-status").textContent = "Server unavailable";
-        byId("model-dot").className = "status-dot";
-    }
-}
-
 function renderPortfolio() {
     const list = byId("portfolio");
     list.replaceChildren();
@@ -172,6 +156,14 @@ const unassessedChoices = {
     materiality_question: "unclear",
 };
 
+function choiceLabel(questionName, choice) {
+    if (questionName === "materiality_question") {
+        const significanceLabels = { major: "High", minor: "Low", routine: "Routine", unclear: "Unclear" };
+        return significanceLabels[choice] || choice?.replaceAll("_", " ");
+    }
+    return choice?.replaceAll("_", " ");
+}
+
 function choiceSentiment(questionName, choice) {
     if (!choice || choice === unassessedChoices[questionName]) return null;
     if (questionName === "materiality_question") {
@@ -188,13 +180,13 @@ function renderArticleSignals(symbol) {
     byId("article-signals").hidden = !newsData;
     if (!newsData) return;
     const expanded = expandedArticles.get(symbol) || new Set();
-    byId("signals-label").textContent = `news · ${newsData.articles.length} article${newsData.articles.length === 1 ? "" : "s"}${newsData.aggregate ? "" : " · fetched"}`;
+    byId("signals-label").textContent = `${newsData.articles.length} article${newsData.articles.length === 1 ? "" : "s"}`;
     const body = byId("article-signals-body");
     body.replaceChildren();
     const table = element("table", "signals-table");
     const thead = element("thead");
     const headerRow = element("tr");
-    headerRow.append(element("th", "signals-th-rel", "Rel."));
+    headerRow.append(element("th", "signals-th-rel", "Relevance"));
     headerRow.append(element("th", "signals-th-headline", "Headline"));
     articleQuestions.forEach(({ name }) => {
         headerRow.append(element("th", "", labels[name] || name));
@@ -211,9 +203,8 @@ function renderArticleSignals(symbol) {
         relCell.append(dot, element("span", "relevance-score", article.relevance.toFixed(2)));
         row.append(relCell);
         const rawHeadline = article.text.split(":")[0] || article.text;
-        const headline = rawHeadline.length > 55 ? rawHeadline.slice(0, 55) + "…" : rawHeadline;
         const headlineCell = element("td", "signals-headline");
-        const headlineButton = element("button", "signals-headline-button", headline);
+        const headlineButton = element("button", "signals-headline-button", rawHeadline);
         headlineButton.type = "button";
         headlineButton.title = expanded.has(index) ? "Collapse article" : "Show full article";
         headlineButton.setAttribute("aria-expanded", String(expanded.has(index)));
@@ -228,7 +219,7 @@ function renderArticleSignals(symbol) {
         articleQuestions.forEach(({ name }) => {
             const choice = article.answers?.[name]?.choice;
             const cell = element("td");
-            const badge = element("span", "screen-choice", choice?.replaceAll("_", " ") || "—");
+            const badge = element("span", "screen-choice", choiceLabel(name, choice) || "—");
             if (choice) {
                 badge.classList.add("assessed");
                 const s = choiceSentiment(name, choice);
@@ -248,30 +239,6 @@ function renderArticleSignals(symbol) {
             tbody.append(detailRow);
         }
     });
-    if (newsData.aggregate) {
-        const aggRow = element("tr", "signals-aggregate-row");
-        aggRow.append(element("td", ""));
-        aggRow.append(element("td", "signals-aggregate-label", "Weighted aggregate"));
-        articleQuestions.forEach(({ name }) => {
-            const choice = newsData.aggregate.answers?.[name]?.choice;
-            const confidence = newsData.aggregate.answers?.[name]?.answer_confidence;
-            const cell = element("td");
-            const badge = element("span", "screen-choice", choice?.replaceAll("_", " ") || "—");
-            if (choice) {
-                badge.classList.add("assessed");
-                const s = choiceSentiment(name, choice);
-                if (s === "positive") badge.classList.add("positive");
-                else if (s === "negative") badge.classList.add("negative");
-                else if (s === "neutral") badge.classList.add("caution");
-            }
-            cell.append(badge);
-            if (typeof confidence === "number") {
-                cell.append(element("span", "signals-confidence", `${(confidence * 100).toFixed(0)}%`));
-            }
-            aggRow.append(cell);
-        });
-        tbody.append(aggRow);
-    }
     table.append(tbody);
     body.append(table);
 }
@@ -329,7 +296,7 @@ function renderOverview() {
         articleQuestions.forEach(({ name }) => {
             const value = result?.answers[name]?.choice;
             const cell = element("td");
-            const badge = element("span", "screen-choice", value?.replaceAll("_", " ") || "Not run");
+            const badge = element("span", "screen-choice", choiceLabel(name, value) || "Not run");
             if (value) {
                 badge.classList.add("assessed");
                 const s = choiceSentiment(name, value);
@@ -383,7 +350,6 @@ async function screenPortfolio() {
     updateControls();
     let completed = 0;
     let failed = 0;
-    const statusTimer = setInterval(updateStatus, 1500);
     try {
         for (const { symbol } of companies) {
             if (stopRequested) break;
@@ -412,14 +378,12 @@ async function screenPortfolio() {
             completed += 1;
         }
     } finally {
-        clearInterval(statusTimer);
         activeSymbol = "";
         running = false;
         screening = false;
         byId("screen-status").textContent = `${stopRequested ? "Stopped" : "Screen complete"}. ${completed - failed} succeeded, ${failed} failed, ${companies.length - completed} not processed.`;
         renderOverview();
         updateControls();
-        updateStatus();
     }
 }
 
@@ -455,6 +419,25 @@ function renderSnapshot() {
 
 function renderResult() {
     const result = results.get(selected);
+    byId("research-summary").hidden = !result;
+    const findings = byId("summary-findings");
+    findings.replaceChildren();
+    if (result) {
+        articleQuestions.forEach(({ name }) => {
+            const choice = result.answers[name]?.choice;
+            const finding = element("div");
+            const value = element("dd", "screen-choice assessed", choiceLabel(name, choice) || "Unknown");
+            const sentiment = choiceSentiment(name, choice);
+            if (sentiment) value.classList.add(sentiment === "neutral" ? "caution" : sentiment);
+            finding.append(element("dt", "", labels[name] || name), value);
+            findings.append(finding);
+        });
+        const holding = companies.find(({ symbol }) => symbol === selected);
+        const weight = element("div");
+        weight.append(element("dt", "", "Portfolio weight"), element("dd", "", formatMetric(holding?.weight, "fraction")));
+        findings.append(weight);
+        byId("summary-method").textContent = `Relevance-weighted result · ${result.raw.articles.length} articles`;
+    }
     byId("laya-time").textContent = result
         ? result.timing.laya_ms.toLocaleString(undefined, {
             maximumFractionDigits: 1,
@@ -470,16 +453,8 @@ function renderResult() {
     byId("contract-note").textContent = result
         ? `${Object.keys(result.answers).length} of ${Object.keys(result.answers).length} within allowed values`
         : `${articleQuestions.length} constrained choice fields`;
-    byId("run-model-state").textContent = result
-        ? result.timing.model_preloaded
-            ? "Reused model"
-            : "First load"
-        : "Not run";
-    byId("setup-note").textContent = result
-        ? `Setup ${result.timing.setup_ms.toLocaleString()} ms`
-        : "Setup timed separately";
     byId("total-time").textContent = result
-        ? `Server total ${result.timing.total_ms.toLocaleString()} ms`
+        ? `Analysis server time ${result.timing.total_ms.toLocaleString()} ms`
         : "";
     byId("response-json").textContent = result
         ? JSON.stringify(result.raw, null, 2)
@@ -497,6 +472,8 @@ async function selectCompany(symbol, refresh = false) {
     snapshot = null;
     if (refresh) {
         results.delete(symbol);
+        newsResults.delete(symbol);
+        expandedArticles.delete(symbol);
         screenErrors.delete(symbol);
     }
     showError();
@@ -547,7 +524,6 @@ async function analyzeNewsArticles() {
         byId("elapsed").textContent =
             `${((performance.now() - started) / 1000).toFixed(1)} s elapsed`;
     }, 100);
-    const statusTimer = setInterval(updateStatus, 1500);
     try {
         const data = await request(`/api/sentiment-each/${encodeURIComponent(symbol)}`);
         newsResults.set(symbol, data);
@@ -567,7 +543,7 @@ async function analyzeNewsArticles() {
         renderArticleSignals(symbol);
         running = false;
         setActivity(
-            `News analysis complete. ${data.articles.length} article${data.articles.length === 1 ? "" : "s"} · weighted aggregate${data.cached ? " (cached)" : ""}.`,
+            `News analysis complete. ${data.articles.length} article${data.articles.length === 1 ? "" : "s"} · weighted aggregate.`,
         );
     } catch (error) {
         running = false;
@@ -576,10 +552,8 @@ async function analyzeNewsArticles() {
         setActivity("News analysis failed. Retry.");
     } finally {
         clearInterval(timer);
-        clearInterval(statusTimer);
         byId("elapsed").textContent = "";
         updateControls();
-        updateStatus();
         renderOverview();
     }
 }
@@ -629,7 +603,6 @@ byId("company-select").addEventListener("change", (event) =>
 
 async function initialize() {
     window.lucide?.createIcons();
-    updateStatus();
     try {
         const portfolio = await request("/api/portfolio");
         companies = portfolio.companies;
@@ -662,7 +635,6 @@ async function initialize() {
         );
         showOverview();
         byId("screen-status").textContent = companies.length ? "Awaiting news analysis." : "The portfolio is empty.";
-        if (companies.length) await selectCompany(companies[0].symbol);
     } catch (error) {
         showError(`${error.message} Reload the page to retry.`);
         byId("screen-status").textContent = "Unable to load portfolio.";
