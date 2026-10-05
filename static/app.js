@@ -475,9 +475,6 @@ function renderResult() {
     byId("total-time").textContent = result
         ? `Analysis server time ${result.timing.total_ms.toLocaleString()} ms`
         : "";
-    byId("response-json").textContent = result
-        ? JSON.stringify(result.raw, null, 2)
-        : "No analysis run yet.";
 }
 
 async function selectCompany(symbol, refresh = false) {
@@ -577,31 +574,6 @@ async function analyzeNewsArticles() {
     }
 }
 
-function activateTab(tab) {
-    document.querySelectorAll("[role=tab]").forEach((button) => {
-        const active = button === tab;
-        button.setAttribute("aria-selected", String(active));
-        button.tabIndex = active ? 0 : -1;
-        byId(`panel-${button.dataset.tab}`).hidden = !active;
-    });
-}
-
-document.querySelectorAll("[role=tab]").forEach((tab, index, tabs) => {
-    tab.addEventListener("click", () => activateTab(tab));
-    tab.addEventListener("keydown", (event) => {
-        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-        event.preventDefault();
-        const next =
-            event.key === "Home"
-                ? 0
-                : event.key === "End"
-                    ? tabs.length - 1
-                    : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) %
-                    tabs.length;
-        activateTab(tabs[next]);
-        tabs[next].focus();
-    });
-});
 byId("analyze-news").addEventListener("click", analyzeNewsArticles);
 byId("overview-nav").addEventListener("click", showOverview);
 byId("screen-portfolio").addEventListener("click", screenPortfolio);
@@ -628,30 +600,6 @@ async function initialize() {
         articleQuestions = portfolio.article_questions || [];
         byId("question-count").textContent = articleQuestions.length;
         byId("decision-total").textContent = articleQuestions.length;
-        const properties = Object.fromEntries(
-            articleQuestions.map((question) => [
-                question.name,
-                {
-                    type: "object",
-                    required: ["type", "choice"],
-                    properties: {
-                        type: { const: "choice" },
-                        choice: { type: "string", enum: Object.keys(question.criteria) },
-                    },
-                    additionalProperties: true,
-                },
-            ]),
-        );
-        byId("schema-json").textContent = JSON.stringify(
-            {
-                type: "object",
-                required: articleQuestions.map((question) => question.name),
-                properties,
-                additionalProperties: false,
-            },
-            null,
-            2,
-        );
         showOverview();
         byId("screen-status").textContent = companies.length ? "Awaiting news analysis." : "The portfolio is empty.";
     } catch (error) {

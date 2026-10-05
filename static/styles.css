@@ -868,30 +868,11 @@ h2 {
 
 .inspector-header {
     border-bottom: 1px solid var(--line);
+    padding-bottom: 13px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 14px;
-}
-
-.tabs {
-    display: flex;
-    gap: 23px;
-}
-
-.tabs button {
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    padding: 0 0 13px;
-    color: var(--muted);
-    font-size: 12px;
-    white-space: nowrap;
-}
-
-.tabs button[aria-selected="true"] {
-    color: var(--ink);
-    border-bottom-color: var(--ink);
 }
 
 .source-label {
@@ -930,16 +911,6 @@ h2 {
     border-top: 1px solid var(--line);
     font: 9px var(--mono);
     color: var(--muted);
-}
-
-pre {
-    font: 11px/1.8 var(--mono);
-    background: #f2f5f3;
-    padding: 20px;
-    overflow: auto;
-    max-height: 360px;
-    margin: 16px 0;
-    tab-size: 2;
 }
 
 .analyze-news-button {
@@ -1461,15 +1432,6 @@ pre {
 
     .inspector {
         margin-top: 28px;
-    }
-
-    .tabs {
-        gap: 16px;
-        flex-wrap: wrap;
-    }
-
-    .tabs button {
-        font-size: 12px;
     }
 
     .page-footer {
