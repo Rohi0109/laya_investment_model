@@ -126,9 +126,45 @@ def test_top_articles_with_relevance_exposes_scores(monkeypatch):
     with patch("ticker.obtain_sentiment.requests.get", return_value=response):
         articles = obtain_top_articles_with_relevance("NVDA", limit=2)
     assert articles == [
-        {"text": "A: a", "relevance": 0.9},
-        {"text": "B: b", "relevance": 0.2},
+        {"text": "A: a", "relevance": 0.9, "title": "A"},
+        {"text": "B: b", "relevance": 0.2, "title": "B"},
     ]
+
+
+def test_article_provenance_survives_ranking_and_cache(monkeypatch):
+    monkeypatch.setenv("ALPHAVANTAGE_API_KEY", "test-key")
+    provenance = {
+        "title": "NVIDIA: Quarterly results",
+        "source": "Example News",
+        "url": "https://example.com/news/results",
+        "time_published": "20261005T130000",
+    }
+    response = Mock(status_code=200)
+    response.json.return_value = {"feed": [
+        {"title": "Other news", "summary": "Other."},
+        {**provenance, "summary": "Revenue grew.",
+         "ticker_sentiment": [{"ticker": "NVDA", "relevance_score": "0.9"}]},
+    ]}
+    with patch("ticker.obtain_sentiment.requests.get", return_value=response) as get:
+        articles = obtain_top_articles_with_relevance("NVDA")
+        cached = obtain_top_articles_with_relevance("NVDA")
+    assert articles == cached
+    assert articles[0] == {**provenance, "text": "NVIDIA: Quarterly results: Revenue grew.", "relevance": 0.9}
+    assert "source" not in articles[1]
+    get.assert_called_once()
+
+
+def test_legacy_article_cache_remains_usable_without_api(monkeypatch):
+    monkeypatch.delenv("ALPHAVANTAGE_API_KEY", raising=False)
+    obtain_sentiment_module.CACHE_DIR.mkdir()
+    cache_file = obtain_sentiment_module.CACHE_DIR / "NVDA_3.json"
+    original = '{"articles": [{"text": "Saved article: Summary", "relevance": 0.9}]}'
+    cache_file.write_text(original)
+    with patch("ticker.obtain_sentiment.requests.get") as get:
+        articles = obtain_top_articles_with_relevance("NVDA")
+    assert articles == [{"text": "Saved article: Summary", "relevance": 0.9}]
+    assert cache_file.read_text() == original
+    get.assert_not_called()
 
 
 def test_caches_successful_fetch_without_repeat_api_call(monkeypatch):

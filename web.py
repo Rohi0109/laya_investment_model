@@ -216,7 +216,14 @@ def sentiment_each(symbol: str):
             "symbol": symbol,
             "snapshot": snapshot,
             "articles": [
-                {"text": article["text"], "relevance": article["relevance"], "answers": ans}
+                {
+                    "text": article["text"], "relevance": article["relevance"], "answers": ans,
+                    **{
+                        field: article[field]
+                        for field in ("title", "source", "url", "time_published")
+                        if field in article
+                    },
+                }
                 for article, ans in zip(articles, validated_results)
             ],
             "aggregate": {"answers": aggregate_answers},
