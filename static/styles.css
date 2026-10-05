@@ -1001,9 +1001,17 @@ pre {
     flex-shrink: 0;
 }
 
-.rel-high { background: var(--green); }
-.rel-mid { background: #bd801c; }
-.rel-low { background: #a8afac; }
+.rel-high {
+    background: var(--green);
+}
+
+.rel-mid {
+    background: #bd801c;
+}
+
+.rel-low {
+    background: #a8afac;
+}
 
 .relevance-score {
     font: 10px var(--mono);
@@ -1067,9 +1075,17 @@ pre {
     flex-shrink: 0;
 }
 
-.signal-dot.signal-positive { background: #087b61; }
-.signal-dot.signal-neutral { background: #bd801c; }
-.signal-dot.signal-negative { background: #ac5140; }
+.signal-dot.signal-positive {
+    background: #087b61;
+}
+
+.signal-dot.signal-neutral {
+    background: #bd801c;
+}
+
+.signal-dot.signal-negative {
+    background: #ac5140;
+}
 
 .page-footer {
     margin-top: 33px;
