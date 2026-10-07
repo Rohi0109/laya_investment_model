@@ -2,7 +2,7 @@
 
 A local portfolio-news research demo. FastAPI serves a plain HTML/CSS/JavaScript
 interface; Yahoo Finance supplies fundamentals, Alpha Vantage supplies news,
-and Laya classifies each article's market reaction and significance.
+and Laya classifies each article's market reaction.
 
 ## Quick Start
 
@@ -35,19 +35,16 @@ If preloading fails, analysis retries loading the model on demand.
 
 1. Start on **Portfolio overview** and choose **Analyze news** to screen holdings
 	 sequentially. Stop takes effect after the current company finishes.
-2. Compare **Market reaction** and **Significance**, using portfolio order or
-	 either weight sort. Select a company for its findings and fundamentals.
+2. Review **Market reaction**, using portfolio order or either weight sort.
+	 Select a company for its findings and fundamentals.
 3. Expand a supporting headline to read the provider's article summary. Publisher
-	 links open the source page in a new tab; publication dates appear when supplied.
+	links open the source page in a new tab; publication dates appear when supplied.
 4. Open the collapsed diagnostics only when discussing inference timing or validation.
 
 Each company uses up to three earnings-related articles, ranked by ticker
-relevance. Laya classifies them separately; the aggregate is a relevance-weighted
-vote, falling back to equal weights when all relevance scores are zero.
-The API retains `answer_confidence` as the winning choice's weighted vote share.
-It is not a calibrated probability of correctness and is not displayed or offered
-as a sort in the UI. Significance maps the model's `major`/`minor` choices to
-High/Low without changing the underlying model values.
+relevance. Laya classifies them separately, and the displayed outlook and
+portfolio overview use a relevance-weighted vote across those articles for each
+question, falling back to equal weights if all articles have zero relevance.
 
 ## Data And Caching
 

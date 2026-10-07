@@ -34,7 +34,7 @@ def test_portfolio_and_snapshot(client):
         "growth_outlook_question", "profitability_outlook_question",
     ]
     assert [question["name"] for question in portfolio["article_questions"]] == [
-        "market_reaction_question", "materiality_question",
+        "market_reaction_question", "article_focus_question",
     ]
     snapshot = client.get("/api/companies/NVDA").json()
     assert snapshot["state"]["revenue_growth"] == 0.55
@@ -239,11 +239,11 @@ def test_sentiment_each_classifies_and_aggregates(client, monkeypatch):
     decision_each = Mock(return_value=[
         {"answers": {
             "market_reaction_question": {"type": "choice", "choice": "bullish"},
-            "materiality_question": {"type": "choice", "choice": "major"},
+            "article_focus_question": {"type": "choice", "choice": "company_specific"},
         }},
         {"answers": {
             "market_reaction_question": {"type": "choice", "choice": "bearish"},
-            "materiality_question": {"type": "choice", "choice": "minor"},
+            "article_focus_question": {"type": "choice", "choice": "sector_wide"},
         }},
     ])
     monkeypatch.setattr(web, "decision_each", decision_each)
@@ -261,7 +261,6 @@ def test_sentiment_each_classifies_and_aggregates(client, monkeypatch):
     # Weighted vote: 0.9 bullish vs 0.1 bearish -> bullish wins with ~90% confidence.
     assert body["aggregate"]["answers"]["market_reaction_question"]["choice"] == "bullish"
     assert body["aggregate"]["answers"]["market_reaction_question"]["answer_confidence"] == pytest.approx(0.9)
-    assert body["aggregate"]["answers"]["materiality_question"]["choice"] == "major"
 
 
 def test_sentiment_each_reports_fetch_failure(client, monkeypatch):
@@ -283,7 +282,7 @@ def test_sentiment_each_rejects_concurrent_runs(client, monkeypatch):
     )
     monkeypatch.setattr(web, "decision_each", Mock(return_value=[{"answers": {
         "market_reaction_question": {"type": "choice", "choice": "bullish"},
-        "materiality_question": {"type": "choice", "choice": "major"},
+        "article_focus_question": {"type": "choice", "choice": "company_specific"},
     }}]))
     with web.analysis_lock:
         assert client.get("/api/sentiment-each/NVDA").status_code == 409

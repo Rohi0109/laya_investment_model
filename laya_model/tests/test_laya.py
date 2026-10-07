@@ -82,13 +82,38 @@ def test_article_questions():
     # rather than a long excerpt or full transcript.
     questions = return_article_questions()
     assert [question.name for question in questions] == [
-        "market_reaction_question", "materiality_question",
+        "market_reaction_question", "article_focus_question",
     ]
     assert all(isinstance(question, ChoiceQuestion) for question in questions)
     assert [set(question.criteria) for question in questions] == [
         {"bullish", "bearish", "neutral", "not_discussed"},
-        {"major", "minor", "routine", "unclear"},
+        {"company_specific", "sector_wide"},
     ]
+
+
+def test_article_questions_resolve_known_nvidia_cases():
+    """A frozen real article excerpt cached 2026-10-06 from Alpha Vantage NEWS_SENTIMENT for an
+    NVDA portfolio peer (not fabricated), used with the article-only state (no valuation/growth
+    metrics) the production endpoint now sends. The base prompt got this wrong before this fix
+    (see goals.md discussion): an analyst downgrade must not read as a neutral reaction just
+    because the same article also mentions strong revenue.
+    """
+    router = setup()
+    questions = return_article_questions()
+
+    downgrade_state = ResearchState(
+        company="ExxonMobil", symbol="XOM",
+        research_text=(
+            "Wells Fargo downgrades ExxonMobil stock to Hold: Wells Fargo has downgraded "
+            "ExxonMobil stock from strong-buy to hold, citing valuation alongside operating "
+            "performance as the immediate issue. Despite the downgrade, ExxonMobil reported "
+            "strong second-quarter revenues of $114.53 billion, exceeding consensus, and "
+            "generated significant cash flow from operations. Analysts are now looking ahead "
+            "to the company's third-quarter results expected on October 30, 2026."
+        ),
+    ).model_dump_json(exclude_none=True)
+    downgrade_result = decision(downgrade_state, questions, router)
+    assert downgrade_result["answers"]["market_reaction_question"]["choice"] == "bearish"
 
 
 def test_research_decision_forwards_payload(nvidia_info):

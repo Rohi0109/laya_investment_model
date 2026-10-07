@@ -1,23 +1,23 @@
 const byId = (id) => document.getElementById(id);
 const brands = {
     NVDA: "nvidia",
-    META: "meta",
+    NKE: "nike",
     JPM: "chase",
-    XOM: "exxonmobil",
+    PLUG: "plugpower",
     WMT: "walmart",
     KO: "cocacola",
 };
 const names = {
     NVDA: "NVIDIA",
-    META: "Meta Platforms",
+    NKE: "Nike",
     JPM: "JPMorgan Chase",
-    XOM: "Exxon Mobil",
+    PLUG: "Plug Power",
     WMT: "Walmart",
     KO: "Coca-Cola",
 };
 const labels = {
     market_reaction_question: "Market reaction",
-    materiality_question: "Significance",
+    article_focus_question: "Article focus",
 };
 const metrics = [
     ["forward_pe", "Forward P/E", "ratio"],
@@ -56,7 +56,7 @@ function element(tag, className, text) {
 function logo(symbol) {
     const image = document.createElement("img");
     if (!brands[symbol]) return element("span", "", symbol.slice(0, 2));
-    image.src = `/static/${brands[symbol]}.${symbol === "XOM" ? "png" : "svg"}`;
+    image.src = `/static/${brands[symbol]}.svg`;
     image.alt = "";
     image.addEventListener("error", () =>
         image.replaceWith(element("span", "", symbol.slice(0, 2))),
@@ -147,23 +147,14 @@ const negativeChoices = {
 };
 const unassessedChoices = {
     market_reaction_question: "not_discussed",
-    materiality_question: "unclear",
 };
 
 function choiceLabel(questionName, choice) {
-    if (questionName === "materiality_question") {
-        const significanceLabels = { major: "High", minor: "Low", routine: "Routine", unclear: "Unclear" };
-        return significanceLabels[choice] || choice?.replaceAll("_", " ");
-    }
     return choice?.replaceAll("_", " ");
 }
 
 function choiceSentiment(questionName, choice) {
     if (!choice || choice === unassessedChoices[questionName]) return null;
-    if (questionName === "materiality_question") {
-        // Materiality is about significance, not sentiment: only call out major news.
-        return choice === "major" ? "neutral" : null;
-    }
     if (choice === positiveChoices[questionName]) return "positive";
     if (choice === negativeChoices[questionName]) return "negative";
     return null;
@@ -479,7 +470,7 @@ function renderResult() {
         const weight = element("div");
         weight.append(element("dt", "", "Portfolio weight"), element("dd", "", formatMetric(holding?.weight, "fraction")));
         findings.append(weight);
-        byId("summary-method").textContent = `Relevance-weighted result · ${result.raw.articles.length} articles`;
+        byId("summary-method").textContent = "Relevance-weighted vote across analyzed articles.";
     }
     byId("laya-time").textContent = result
         ? result.timing.laya_ms.toLocaleString(undefined, {
@@ -494,7 +485,7 @@ function renderResult() {
         : "Awaiting run";
     byId("contract-status").classList.toggle("valid", Boolean(result?.validated));
     byId("contract-note").textContent = result
-        ? `${Object.keys(result.answers).length} of ${Object.keys(result.answers).length} within allowed values`
+        ? "Model choices validated against the question schema"
         : `${articleQuestions.length} constrained choice fields`;
     byId("total-time").textContent = result
         ? `Analysis server time ${result.timing.total_ms.toLocaleString()} ms`
@@ -622,7 +613,6 @@ async function initialize() {
         const portfolio = await request("/api/portfolio");
         companies = portfolio.companies;
         articleQuestions = portfolio.article_questions || [];
-        byId("question-count").textContent = articleQuestions.length;
         byId("decision-total").textContent = articleQuestions.length;
         showOverview();
         byId("screen-status").textContent = companies.length ? "Awaiting news analysis." : "The portfolio is empty.";

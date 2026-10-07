@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent
 logger = logging.getLogger(__name__)
 questions = return_research_questions()
 # Separate question set for per-article news analysis (see /api/sentiment-each):
-# market reaction / materiality are tuned for a single short article, not a long excerpt.
+# market reaction is tuned for a single short article, not a long excerpt.
 article_questions = return_article_questions()
 router = None
 model_status = "not_loaded"
@@ -174,8 +174,13 @@ def sentiment_each(symbol: str):
             raise HTTPException(502, str(exc)) from exc
         if not articles:
             raise HTTPException(502, "No news articles available for analysis.")
+        # Article-only state: valuation/growth/risk metrics are irrelevant to market_reaction_question
+        # and reliably distract the model from the article's own event
+        # (verified: laya_model/tests/test_laya.py::test_article_questions_resolve_known_nvidia_cases).
         article_states = [
-            ResearchState(**snapshot["state"], research_text=article["text"]).model_dump_json()
+            ResearchState(
+                company=snapshot["state"].get("company"), symbol=symbol, research_text=article["text"],
+            ).model_dump_json(exclude_none=True)
             for article in articles
         ]
         inference_started = perf_counter()
